@@ -1,0 +1,40 @@
+{
+  "source": {
+    "type": "youtube",
+    "url": "https://www.youtube.com/watch?v=abc123xyz00",
+    "videoId": "abc123xyz00",
+    "title": "How to Run Better 1:1 Meetings"
+  },
+  "transcription": {
+    "model": "whisper-1",
+    "language": "en",
+    "generatedAt": "2026-03-27T10:00:00.000Z"
+  },
+  "audio": {
+    "durationSeconds": 305.4,
+    "chunkCount": 1
+  },
+  "segments": [
+    {
+      "start": 0,
+      "end": 12.5,
+      "text": "Today I want to show you a simple structure for better one on one meetings."
+    },
+    {
+      "start": 12.5,
+      "end": 29.4,
+      "text": "Start with context, then talk through blockers, then leave time for decisions and follow ups."
+    },
+    {
+      "start": 29.4,
+      "end": 46.2,
+      "text": "One quote I come back to is this: clarity reduces anxiety."
+    },
+    {
+      "start": 46.2,
+      "end": 61.8,
+      "text": "If the team leaves with owners and dates, the meeting was useful."
+    }
+  ],
+  "fullText": "Today I want to show you a simple structure for better one on one meetings. Start with context, then talk through blockers, then leave time for decisions and follow ups. One quote I come back to is this: clarity reduces anxiety. If the team leaves with owners and dates, the meeting was useful."
+}

@@ -5,6 +5,7 @@ import { pathToFileURL } from "node:url";
 
 import { Command } from "commander";
 
+import { runSummarizeCommand } from "./commands/summarize.js";
 import { runTranscribeCommand } from "./commands/transcribe.js";
 
 export function createProgram(): Command {
@@ -32,6 +33,24 @@ export function createProgram(): Command {
       baseUrl?: string;
     }) => {
       await runTranscribeCommand(youtubeUrl, options);
+    });
+
+  program
+    .command("summarize")
+    .argument("<transcriptJson>")
+    .requiredOption("--output <summaryPath>")
+    .option("--model <name>")
+    .option("--summary-lang <code>")
+    .option("--force")
+    .option("--base-url <url>")
+    .action(async (transcriptJson: string, options: {
+      output: string;
+      model?: string;
+      summaryLang?: string;
+      force?: boolean;
+      baseUrl?: string;
+    }) => {
+      await runSummarizeCommand(transcriptJson, options);
     });
 
   return program;
