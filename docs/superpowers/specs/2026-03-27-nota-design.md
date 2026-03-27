@@ -156,7 +156,8 @@ Transcript JSON should follow this shape:
   "source": {
     "type": "youtube",
     "url": "https://www.youtube.com/watch?v=...",
-    "videoId": "..."
+    "videoId": "...",
+    "title": "..."
   },
   "transcription": {
     "model": "whisper-1",
@@ -179,6 +180,23 @@ Transcript JSON should follow this shape:
 ```
 
 The summarizer must treat this JSON format as its stable input contract.
+
+The `source.title` field should be captured during the transcription flow so the summarizer can render source metadata without making another YouTube metadata call.
+
+## Chunking Policy
+
+When the downloaded MP3 is at or below the safe upload threshold, the command should send the file directly to OpenAI.
+
+When the MP3 exceeds the threshold, the command should:
+
+- treat `24 MiB` as the safe per-upload ceiling to stay below the nominal 25 MB API limit
+- estimate a safe segment duration from total file size and full audio duration
+- apply a conservative margin when calculating each chunk size
+- split the file into sequential, non-overlapping MP3 chunks
+- transcribe chunks in order
+- rebuild final timestamps by applying each chunk's start offset to the returned segment times
+
+The initial implementation can reuse the current proportional chunk-sizing approach from the existing script, but the behavior must preserve order and must not require overlap between chunks.
 
 ## Summary Artifact Contract
 
