@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { mkdir, open, readFile } from "node:fs/promises";
+import { mkdir, open, readFile, rename, unlink } from "node:fs/promises";
 import path from "node:path";
 
 import type { TranscriptDocument } from "../types.js";
@@ -39,13 +39,43 @@ export function assertWritable(filePath: string, force: boolean): void {
   }
 }
 
-export async function writeJson(filePath: string, value: unknown): Promise<void> {
+export async function writeJson(
+  filePath: string,
+  value: unknown,
+  options: { overwrite?: boolean } = {},
+): Promise<void> {
+  await writeText(filePath, `${JSON.stringify(value, null, 2)}\n`, options);
+}
+
+export async function writeText(
+  filePath: string,
+  value: string,
+  options: { overwrite?: boolean } = {},
+): Promise<void> {
   await ensureParentDir(filePath);
-  const handle = await open(filePath, "wx");
+  const targetPath = options.overwrite
+    ? path.join(
+        path.dirname(filePath),
+        `.${path.basename(filePath)}.${process.pid}.${Date.now()}.tmp`,
+      )
+    : filePath;
+  const handle = await open(targetPath, "wx");
   try {
-    await handle.writeFile(`${JSON.stringify(value, null, 2)}\n`, "utf8");
+    await handle.writeFile(value, "utf8");
+    await handle.sync();
   } finally {
     await handle.close();
+  }
+
+  if (!options.overwrite) {
+    return;
+  }
+
+  try {
+    await rename(targetPath, filePath);
+  } catch (error) {
+    await unlink(targetPath).catch(() => {});
+    throw error;
   }
 }
 

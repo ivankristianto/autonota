@@ -58,6 +58,13 @@ describe("transcription helpers", () => {
   });
 
   it("retries 429-like errors and does not retry unrelated errors", async () => {
+    const stderrWrites: string[] = [];
+    const stderrWriteSpy = vi
+      .spyOn(process.stderr, "write")
+      .mockImplementation((chunk: string | Uint8Array) => {
+        stderrWrites.push(String(chunk));
+        return true;
+      });
     const setTimeoutSpy = vi
       .spyOn(globalThis, "setTimeout")
       .mockImplementation(((callback: TimerHandler) => {
@@ -85,6 +92,9 @@ describe("transcription helpers", () => {
     expect(result).toBe("ok");
     expect(attempts).toBe(2);
     expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 1000);
+    expect(stderrWrites).toEqual([
+      "Rate limited. Retrying in 1.0s (attempt 2/3).\n",
+    ]);
 
     let failedAttempts = 0;
     await expect(
@@ -98,6 +108,7 @@ describe("transcription helpers", () => {
       }),
     ).rejects.toThrow("boom");
     expect(failedAttempts).toBe(1);
+    stderrWriteSpy.mockRestore();
   });
 
   it("preserves source metadata and timestamps when assembling a transcript", () => {
@@ -138,6 +149,7 @@ describe("transcription helpers", () => {
       "/tmp/chunk-000.mp3",
       "/tmp/chunk-001.mp3",
     ]);
+    getAudioDurationSecondsMock.mockResolvedValueOnce(52).mockResolvedValueOnce(48);
     cleanupFilesMock.mockResolvedValueOnce(undefined);
     createReadStreamMock.mockImplementation((filePath: string) => ({ filePath }));
 
@@ -178,23 +190,54 @@ describe("transcription helpers", () => {
     expect(splitAudioToMp3ChunksMock).toHaveBeenCalledWith("/tmp/demo.mp3", 60, "/tmp");
     expect(document.segments).toEqual([
       { start: 0, end: 10, text: "first chunk" },
-      { start: 65, end: 75, text: "second chunk" },
+      { start: 57, end: 67, text: "second chunk" },
     ]);
     expect(document.audio.chunkCount).toBe(2);
     expect(document.source.title).toBe("Demo");
   });
 
-  it("transcribes a single upload without chunking", async () => {
+  it("rejects non-whisper models for the timestamped transcription path", async () => {
+    await expect(
+      transcribeAudio(
+        {
+          audio: {
+            transcriptions: {
+              create: vi.fn(),
+            },
+          },
+        },
+        {
+          audioPath: "/tmp/demo.mp3",
+          source: {
+            type: "youtube",
+            url: "https://www.youtube.com/watch?v=abc123xyz00",
+            videoId: "abc123xyz00",
+            title: "Demo",
+          },
+          durationSeconds: 30,
+          transcription: {
+            model: "gpt-4o-transcribe",
+            language: "en",
+          },
+        },
+      ),
+    ).rejects.toThrow(
+      'Timestamped transcript generation currently supports only the "whisper-1" model.',
+    );
+  });
+
+  it("transcribes a single upload without chunking and omits auto language", async () => {
     createReadStreamMock.mockImplementation((filePath: string) => ({ filePath }));
+    const createMock = vi.fn().mockResolvedValueOnce({
+      segments: [
+        { start: 1, end: 2, text: "  hello  " },
+      ],
+    });
 
     const client = {
       audio: {
         transcriptions: {
-          create: vi.fn().mockResolvedValueOnce({
-            segments: [
-              { start: 1, end: 2, text: "  hello  " },
-            ],
-          }),
+          create: createMock,
         },
       },
     };
@@ -206,16 +249,22 @@ describe("transcription helpers", () => {
     });
 
     expect(segments).toEqual([{ start: 1, end: 2, text: "hello" }]);
+    expect(createMock).toHaveBeenCalledWith({
+      file: { filePath: "/tmp/demo.mp3" },
+      model: "whisper-1",
+      response_format: "verbose_json",
+      timestamp_granularities: ["segment"],
+    });
   });
 
   it("treats chunk cleanup failures as non-fatal after a successful transcription", async () => {
     statMock.mockResolvedValueOnce({ size: 48 * 1024 * 1024 });
-    getAudioDurationSecondsMock.mockResolvedValueOnce(120);
     planChunkDurationMock.mockReturnValueOnce(60);
     splitAudioToMp3ChunksMock.mockResolvedValueOnce([
       "/tmp/chunk-000.mp3",
       "/tmp/chunk-001.mp3",
     ]);
+    getAudioDurationSecondsMock.mockResolvedValueOnce(60).mockResolvedValueOnce(60);
     cleanupFilesMock.mockRejectedValueOnce(new Error("cleanup failed"));
     createReadStreamMock.mockImplementation((filePath: string) => ({ filePath }));
 
@@ -250,6 +299,7 @@ describe("transcription helpers", () => {
 
   it("preserves the transcription error when chunk cleanup also fails", async () => {
     cleanupFilesMock.mockRejectedValueOnce(new Error("cleanup failed"));
+    getAudioDurationSecondsMock.mockResolvedValueOnce(60);
     createReadStreamMock.mockImplementation((filePath: string) => ({ filePath }));
 
     const transcriptionError = new Error("transcription failed");

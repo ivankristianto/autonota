@@ -9,6 +9,7 @@ import {
   deriveSummaryPath,
   deriveTranscriptPath,
   readTranscript,
+  writeText,
   writeJson,
 } from "../../src/lib/fs.js";
 
@@ -49,6 +50,48 @@ describe("filesystem helpers", () => {
         { code: "EEXIST" },
       );
       await expect(readFile(existingPath, "utf8")).resolves.toBe("{}");
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it("overwrites an existing file when overwrite is enabled", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "nota-fs-"));
+    const existingPath = path.join(tempDir, "existing.json");
+    await writeFile(existingPath, "{\"old\":true}\n", "utf8");
+
+    try {
+      await writeJson(existingPath, { replacement: true }, { overwrite: true });
+      await expect(readFile(existingPath, "utf8")).resolves.toContain(
+        '"replacement": true',
+      );
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it("writes text without clobbering an existing file", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "nota-fs-"));
+    const existingPath = path.join(tempDir, "existing.md");
+    await writeFile(existingPath, "old\n", "utf8");
+
+    try {
+      await expect(writeText(existingPath, "replacement\n")).rejects.toMatchObject({
+        code: "EEXIST",
+      });
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it("overwrites existing text when overwrite is enabled", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "nota-fs-"));
+    const existingPath = path.join(tempDir, "existing.md");
+    await writeFile(existingPath, "old\n", "utf8");
+
+    try {
+      await writeText(existingPath, "replacement\n", { overwrite: true });
+      await expect(readFile(existingPath, "utf8")).resolves.toBe("replacement\n");
     } finally {
       await rm(tempDir, { recursive: true, force: true });
     }

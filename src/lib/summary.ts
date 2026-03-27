@@ -1,5 +1,3 @@
-import type OpenAI from "openai";
-
 import type { SummaryRequest, TranscriptDocument } from "../types.js";
 
 interface SummarySection {
@@ -31,6 +29,78 @@ interface SummaryResponseShape {
   notableQuotes?: unknown;
   actionItems?: unknown;
 }
+
+interface SummaryResponseOutputItem {
+  type?: string;
+  content?: Array<{
+    type?: string;
+    refusal?: string;
+  }>;
+}
+
+interface SummaryParseResponse {
+  status?: string;
+  incomplete_details?: {
+    reason?: string | null;
+  } | null;
+  output?: SummaryResponseOutputItem[];
+  output_parsed?: SummaryResponseShape | null;
+}
+
+interface SummaryClient {
+  responses: {
+    parse(input: {
+      model: string;
+      input: string;
+      text: {
+        format: {
+          type: "json_schema";
+          name: string;
+          strict: true;
+          schema: Record<string, unknown>;
+          description: string;
+        };
+      };
+    }): Promise<SummaryParseResponse>;
+  };
+}
+
+const SUMMARY_RESPONSE_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["title", "overview", "keyPoints", "timeline", "notableQuotes", "actionItems"],
+  properties: {
+    title: { type: "string" },
+    overview: { type: "string" },
+    keyPoints: {
+      type: "array",
+      items: { type: "string" },
+    },
+    timeline: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["heading", "bullets"],
+        properties: {
+          heading: { type: "string" },
+          bullets: {
+            type: "array",
+            items: { type: "string" },
+          },
+        },
+      },
+    },
+    notableQuotes: {
+      type: "array",
+      items: { type: "string" },
+    },
+    actionItems: {
+      type: "array",
+      items: { type: "string" },
+    },
+  },
+} satisfies Record<string, unknown>;
 
 export function buildSummaryPrompt(
   transcript: TranscriptDocument,
@@ -72,16 +142,25 @@ export function buildSummaryPrompt(
 }
 
 export async function generateSummaryMarkdown(
-  client: Pick<OpenAI, "responses">,
+  client: SummaryClient,
   transcript: TranscriptDocument,
   options: Pick<SummaryRequest, "model" | "summaryLanguage">,
 ): Promise<string> {
-  const response = await client.responses.create({
+  const response = await client.responses.parse({
     model: options.model,
     input: buildSummaryPrompt(transcript, options),
+    text: {
+      format: {
+        type: "json_schema",
+        name: "nota_summary",
+        strict: true,
+        description: "Structured Markdown summary content for a transcript artifact.",
+        schema: SUMMARY_RESPONSE_SCHEMA,
+      },
+    },
   });
 
-  const content = parseSummaryResponse(response.output_text);
+  const content = parseSummaryResponse(response);
 
   return formatSummaryMarkdown({
     title: transcript.source.title,
@@ -145,16 +224,26 @@ export function formatSummaryMarkdown(input: SummaryMarkdownInput): string {
   return `${lines.join("\n").trim()}\n`;
 }
 
-function parseSummaryResponse(outputText: string | undefined): SummaryResponseShape {
-  if (!outputText?.trim()) {
-    throw new Error("OpenAI summary response did not include output text");
+function parseSummaryResponse(response: SummaryParseResponse): SummaryResponseShape {
+  if (response.status === "incomplete") {
+    throw new Error(
+      `OpenAI summary response was incomplete: ${response.incomplete_details?.reason ?? "unknown"}.`,
+    );
   }
 
-  try {
-    return JSON.parse(outputText) as SummaryResponseShape;
-  } catch {
-    throw new Error("OpenAI summary response was not valid JSON");
+  const refusal = response.output
+    ?.flatMap((item) => item.content ?? [])
+    .find((content) => content.type === "refusal" && typeof content.refusal === "string")
+    ?.refusal;
+  if (refusal) {
+    throw new Error(`OpenAI summary request was refused: ${refusal}`);
   }
+
+  if (!response.output_parsed) {
+    throw new Error("OpenAI summary response did not include parsed structured output.");
+  }
+
+  return response.output_parsed;
 }
 
 function pickString(value: unknown): string | undefined {

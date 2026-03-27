@@ -71,18 +71,20 @@ describe("summary helpers", () => {
   });
 
   it("generates markdown from an OpenAI response and preserves the source title", async () => {
+    const parseMock = vi.fn().mockResolvedValueOnce({
+      status: "completed",
+      output_parsed: {
+        title: "Incorrect model title",
+        overview: "A concise summary.",
+        keyPoints: ["Point one", "Point two"],
+        timeline: [{ heading: "Section", bullets: ["Detail"] }],
+        notableQuotes: ["Clarity reduces anxiety."],
+        actionItems: ["Assign owners to follow ups."],
+      },
+    });
     const client = {
       responses: {
-        create: vi.fn().mockResolvedValueOnce({
-          output_text: JSON.stringify({
-            title: "Incorrect model title",
-            overview: "A concise summary.",
-            keyPoints: ["Point one", "Point two"],
-            timeline: [{ heading: "Section", bullets: ["Detail"] }],
-            notableQuotes: ["Clarity reduces anxiety."],
-            actionItems: ["Assign owners to follow ups."],
-          }),
-        }),
+        parse: parseMock,
       },
     };
 
@@ -91,9 +93,16 @@ describe("summary helpers", () => {
       summaryLanguage: "en",
     });
 
-    expect(client.responses.create).toHaveBeenCalledWith(
+    expect(parseMock).toHaveBeenCalledWith(
       expect.objectContaining({
         model: "gpt-4.1-mini",
+        text: expect.objectContaining({
+          format: expect.objectContaining({
+            type: "json_schema",
+            strict: true,
+            name: "nota_summary",
+          }),
+        }),
       }),
     );
     expect(markdown).toContain(`# ${sampleTranscript.source.title}`);
@@ -101,5 +110,75 @@ describe("summary helpers", () => {
     expect(markdown).toContain("## Key Points");
     expect(markdown).toContain("## Notable Quotes");
     expect(markdown).toContain("## Action Items");
+  });
+
+  it("fails with a targeted error when the model refuses the summary request", async () => {
+    const client = {
+      responses: {
+        parse: vi.fn().mockResolvedValueOnce({
+          status: "completed",
+          output_parsed: null,
+          output: [
+            {
+              type: "message",
+              content: [{ type: "refusal", refusal: "I can’t help with that." }],
+            },
+          ],
+        }),
+      },
+    };
+
+    await expect(
+      generateSummaryMarkdown(client, sampleTranscript, {
+        model: "gpt-4.1-mini",
+        summaryLanguage: "en",
+      }),
+    ).rejects.toThrow("OpenAI summary request was refused: I can’t help with that.");
+  });
+
+  it("fails with a targeted error when the summary response is incomplete", async () => {
+    const client = {
+      responses: {
+        parse: vi.fn().mockResolvedValueOnce({
+          status: "incomplete",
+          incomplete_details: { reason: "max_output_tokens" },
+          output_parsed: null,
+          output: [],
+        }),
+      },
+    };
+
+    await expect(
+      generateSummaryMarkdown(client, sampleTranscript, {
+        model: "gpt-4.1-mini",
+        summaryLanguage: "en",
+      }),
+    ).rejects.toThrow(
+      "OpenAI summary response was incomplete: max_output_tokens.",
+    );
+  });
+
+  it("fails with a targeted error when structured output is missing", async () => {
+    const client = {
+      responses: {
+        parse: vi.fn().mockResolvedValueOnce({
+          status: "completed",
+          output_parsed: null,
+          output: [
+            {
+              type: "message",
+              content: [{ type: "output_text", text: "{\"overview\":\"hello\"}", parsed: null }],
+            },
+          ],
+        }),
+      },
+    };
+
+    await expect(
+      generateSummaryMarkdown(client, sampleTranscript, {
+        model: "gpt-4.1-mini",
+        summaryLanguage: "en",
+      }),
+    ).rejects.toThrow("OpenAI summary response did not include parsed structured output.");
   });
 });

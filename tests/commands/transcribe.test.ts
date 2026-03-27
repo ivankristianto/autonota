@@ -119,7 +119,7 @@ describe("transcribe command", () => {
 
     const result = await runTranscribeCommand("https://youtu.be/abc123xyz00", {
       output: "/work/out/demo",
-      model: "gpt-4o-mini-transcribe",
+      model: "whisper-1",
       lang: "id",
       browser: "brave",
       force: true,
@@ -142,12 +142,14 @@ describe("transcribe command", () => {
       audioPath: "/tmp/nota-run-123/audio.mp3",
       source: transcript.source,
       transcription: {
-        model: "gpt-4o-mini-transcribe",
+        model: "whisper-1",
         language: "id",
       },
       tempDir: "/tmp/nota-run-123",
     });
-    expect(writeJsonMock).toHaveBeenCalledWith("/work/out/demo.transcript.json", transcript);
+    expect(writeJsonMock).toHaveBeenCalledWith("/work/out/demo.transcript.json", transcript, {
+      overwrite: true,
+    });
     expect(printArtifactPathsMock).toHaveBeenCalledWith({
       transcriptPath: "/work/out/demo.transcript.json",
     });
@@ -178,6 +180,19 @@ describe("transcribe command", () => {
     expect(transcribeAudioMock).not.toHaveBeenCalled();
     expect(writeJsonMock).not.toHaveBeenCalled();
     expect(rmMock).toHaveBeenCalledWith("/tmp/nota-run-456", { recursive: true, force: true });
+  });
+
+  it("rejects unsupported transcription models before downloading audio", async () => {
+    await expect(
+      runTranscribeCommand("https://www.youtube.com/watch?v=abc123xyz00", {
+        output: "/work/out/demo",
+        model: "gpt-4o-transcribe",
+      }),
+    ).rejects.toThrow(/whisper-1/);
+
+    expect(mkdtempMock).not.toHaveBeenCalled();
+    expect(downloadYoutubeAudioMock).not.toHaveBeenCalled();
+    expect(transcribeAudioMock).not.toHaveBeenCalled();
   });
 
   it("emits non-TTY task titles only when execution reaches each task", async () => {

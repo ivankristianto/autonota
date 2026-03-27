@@ -1,8 +1,6 @@
-import { writeFile } from "node:fs/promises";
-
 import OpenAI from "openai";
 
-import { assertWritable, ensureParentDir, readTranscript } from "../lib/fs.js";
+import { assertWritable, readTranscript, writeText } from "../lib/fs.js";
 import { checkSummarizeRequirements } from "../lib/requirements.js";
 import { generateSummaryMarkdown } from "../lib/summary.js";
 import { printArtifactPaths, runTasks } from "../lib/tui.js";
@@ -23,10 +21,11 @@ export async function runSummarizeCommand(
   let markdown: string | undefined;
 
   assertWritable(summaryPath, options.force ?? false);
+  const baseURL = options.baseUrl ?? (process.env.OPENAI_BASE_URL?.trim() || undefined);
 
   const client = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY ?? "",
-    ...(options.baseUrl ? { baseURL: options.baseUrl } : {}),
+    ...(baseURL ? { baseURL } : {}),
   });
 
   await runTasks([
@@ -53,8 +52,9 @@ export async function runSummarizeCommand(
           throw new Error("Summary markdown was not created");
         }
 
-        await ensureParentDir(summaryPath);
-        await writeFile(summaryPath, markdown.endsWith("\n") ? markdown : `${markdown}\n`, "utf8");
+        await writeText(summaryPath, markdown.endsWith("\n") ? markdown : `${markdown}\n`, {
+          overwrite: options.force ?? false,
+        });
       },
     },
   ]);

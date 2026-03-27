@@ -23,7 +23,7 @@ export interface WhisperClient {
       create(input: {
         file: ReturnType<typeof createReadStream>;
         model: string;
-        language: string;
+        language?: string;
         response_format: "verbose_json";
         timestamp_granularities: ["segment"];
       }): Promise<WhisperResponse>;
@@ -138,6 +138,9 @@ export async function withRateLimitRetry<T>(fn: () => Promise<T>): Promise<T> {
       }
 
       const waitTime = parseWaitTime(getErrorMessage(error));
+      process.stderr.write(
+        `Rate limited. Retrying in ${waitTime.toFixed(1)}s (attempt ${attempt + 1}/${MAX_RETRIES}).\n`,
+      );
       await delay(waitTime);
     }
   }
@@ -153,17 +156,26 @@ function normalizeSegments(segments: WhisperSegment[] | undefined): TranscriptSe
   }));
 }
 
+function assertTimestampedTranscriptionModel(model: string): void {
+  if (model !== "whisper-1") {
+    throw new Error(
+      'Timestamped transcript generation currently supports only the "whisper-1" model.',
+    );
+  }
+}
+
 async function transcribeFile(
   client: WhisperClient,
   options: TranscribeUploadOptions & { offsetSeconds?: number },
 ): Promise<TranscriptSegment[]> {
   const { audioPath, model, language, offsetSeconds = 0 } = options;
+  assertTimestampedTranscriptionModel(model);
 
   const response = await withRateLimitRetry(() =>
     client.audio.transcriptions.create({
       file: createReadStream(audioPath),
       model,
-      language,
+      ...(language === "auto" ? {} : { language }),
       response_format: "verbose_json",
       timestamp_granularities: ["segment"],
     }),
@@ -199,7 +211,7 @@ export async function transcribeChunkedUpload(
         offsetSeconds,
       });
       segments.push(...chunkSegments);
-      offsetSeconds += options.chunkDurationSeconds;
+      offsetSeconds += await getAudioDurationSeconds(chunkPath);
     }
   } finally {
     try {
@@ -238,6 +250,7 @@ export async function transcribeAudio(
     model: options.transcription?.model ?? "whisper-1",
     language: options.transcription?.language ?? "auto",
   };
+  assertTimestampedTranscriptionModel(transcription.model);
 
   const fileSizeBytes = (await stat(options.audioPath)).size;
   const durationSeconds =

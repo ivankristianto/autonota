@@ -24,15 +24,22 @@ export async function runTranscribeCommand(
   youtubeUrl: string,
   options: TranscribeCommandOptions,
 ): Promise<{ transcriptPath: string; transcript: TranscriptDocument }> {
+  if (options.model && options.model !== "whisper-1") {
+    throw new Error(
+      'Timestamped transcript generation currently supports only the "whisper-1" model.',
+    );
+  }
+
   const transcriptPath = deriveTranscriptPath(options.output);
   const tempDir = await mkdtemp(path.join(os.tmpdir(), "nota-transcribe-"));
 
   try {
     assertWritable(transcriptPath, options.force ?? false);
+    const baseURL = options.baseUrl ?? (process.env.OPENAI_BASE_URL?.trim() || undefined);
 
     const client = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY ?? "",
-      ...(options.baseUrl ? { baseURL: options.baseUrl } : {}),
+      ...(baseURL ? { baseURL } : {}),
     });
 
     let audioPath: string | undefined;
@@ -93,7 +100,9 @@ export async function runTranscribeCommand(
             throw new Error("Transcript was not created");
           }
 
-          await writeJson(transcriptPath, transcript);
+          await writeJson(transcriptPath, transcript, {
+            overwrite: options.force ?? false,
+          });
         },
       },
     ]);

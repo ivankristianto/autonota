@@ -6,33 +6,23 @@ const {
   checkSummarizeRequirementsMock,
   readTranscriptMock,
   assertWritableMock,
-  ensureParentDirMock,
   generateSummaryMarkdownMock,
   printArtifactPathsMock,
   openAiConstructorMock,
-  writeFileMock,
+  writeTextMock,
 } = vi.hoisted(() => ({
   checkSummarizeRequirementsMock: vi.fn(),
   readTranscriptMock: vi.fn(),
   assertWritableMock: vi.fn(),
-  ensureParentDirMock: vi.fn(),
   generateSummaryMarkdownMock: vi.fn(),
   printArtifactPathsMock: vi.fn(),
   openAiConstructorMock: vi.fn(),
-  writeFileMock: vi.fn(),
+  writeTextMock: vi.fn(),
 }));
 
 vi.mock("openai", () => ({
   default: openAiConstructorMock,
 }));
-
-vi.mock("node:fs/promises", async () => {
-  const actual = await vi.importActual<typeof import("node:fs/promises")>("node:fs/promises");
-  return {
-    ...actual,
-    writeFile: writeFileMock,
-  };
-});
 
 vi.mock("../../src/lib/requirements.js", () => ({
   checkSummarizeRequirements: checkSummarizeRequirementsMock,
@@ -44,7 +34,7 @@ vi.mock("../../src/lib/fs.js", async () => {
     ...actual,
     readTranscript: readTranscriptMock,
     assertWritable: assertWritableMock,
-    ensureParentDir: ensureParentDirMock,
+    writeText: writeTextMock,
   };
 });
 
@@ -67,11 +57,10 @@ afterEach(() => {
   checkSummarizeRequirementsMock.mockReset();
   readTranscriptMock.mockReset();
   assertWritableMock.mockReset();
-  ensureParentDirMock.mockReset();
   generateSummaryMarkdownMock.mockReset();
   printArtifactPathsMock.mockReset();
   openAiConstructorMock.mockReset();
-  writeFileMock.mockReset();
+  writeTextMock.mockReset();
   vi.restoreAllMocks();
   delete process.env.OPENAI_API_KEY;
 });
@@ -116,8 +105,9 @@ describe("summarize command", () => {
       model: "gpt-4.1-mini",
       summaryLanguage: "id",
     });
-    expect(ensureParentDirMock).toHaveBeenCalledWith("/work/out/demo.summary.md");
-    expect(writeFileMock).toHaveBeenCalledWith("/work/out/demo.summary.md", `${markdown}\n`, "utf8");
+    expect(writeTextMock).toHaveBeenCalledWith("/work/out/demo.summary.md", `${markdown}\n`, {
+      overwrite: true,
+    });
     expect(printArtifactPathsMock).toHaveBeenCalledWith({
       summaryPath: "/work/out/demo.summary.md",
     });
@@ -142,7 +132,7 @@ describe("summarize command", () => {
 
     expect(readTranscriptMock).not.toHaveBeenCalled();
     expect(generateSummaryMarkdownMock).not.toHaveBeenCalled();
-    expect(writeFileMock).not.toHaveBeenCalled();
+    expect(writeTextMock).not.toHaveBeenCalled();
   });
 
   it("registers the summarize command with the required options", () => {
