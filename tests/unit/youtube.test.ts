@@ -1,13 +1,16 @@
+import { EventEmitter } from "node:events";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const { spawnSyncMock, mkdirMock, existsSyncMock } = vi.hoisted(() => ({
+const { spawnSyncMock, spawnMock, mkdirMock, existsSyncMock } = vi.hoisted(() => ({
   spawnSyncMock: vi.fn(),
+  spawnMock: vi.fn(),
   mkdirMock: vi.fn(),
   existsSyncMock: vi.fn(),
 }));
 
 vi.mock("node:child_process", () => ({
   spawnSync: spawnSyncMock,
+  spawn: spawnMock,
 }));
 
 vi.mock("node:fs", () => ({
@@ -23,12 +26,31 @@ import {
   extractVideoId,
   normalizeYoutubeUrl,
 } from "../../src/lib/youtube.js";
+import type { DownloadProgressEvent } from "../../src/lib/progress.js";
 
 afterEach(() => {
   spawnSyncMock.mockReset();
+  spawnMock.mockReset();
   mkdirMock.mockReset();
   existsSyncMock.mockReset();
 });
+
+function makeSpawnResult(lines: string[], exitCode = 0): void {
+  const proc = new EventEmitter() as EventEmitter & {
+    stdout: EventEmitter;
+    stderr: EventEmitter;
+  };
+  proc.stdout = new EventEmitter();
+  proc.stderr = new EventEmitter();
+  spawnMock.mockReturnValueOnce(proc);
+
+  process.nextTick(() => {
+    for (const line of lines) {
+      proc.stdout.emit("data", Buffer.from(`${line}\n`));
+    }
+    proc.emit("close", exitCode);
+  });
+}
 
 describe("youtube helpers", () => {
   it("normalizes youtube.com watch URLs", () => {
@@ -54,21 +76,17 @@ describe("youtube helpers", () => {
 
   it("threads browser cookies through metadata fetch and download", async () => {
     existsSyncMock.mockReturnValueOnce(false);
-    spawnSyncMock
-      .mockReturnValueOnce({
-        status: 0,
-        stdout: JSON.stringify({
-          id: "abc123xyz00",
-          title: "Demo title",
-          webpage_url: "https://www.youtube.com/watch?v=abc123xyz00",
-        }),
-        stderr: "",
-      })
-      .mockReturnValueOnce({
-        status: 0,
-        stdout: "",
-        stderr: "",
-      });
+    mkdirMock.mockResolvedValueOnce(undefined);
+    spawnSyncMock.mockReturnValueOnce({
+      status: 0,
+      stdout: JSON.stringify({
+        id: "abc123xyz00",
+        title: "Demo title",
+        webpage_url: "https://www.youtube.com/watch?v=abc123xyz00",
+      }),
+      stderr: "",
+    });
+    makeSpawnResult([]);
 
     await downloadYoutubeAudio({
       url: "https://www.youtube.com/watch?v=abc123xyz00",
@@ -76,14 +94,49 @@ describe("youtube helpers", () => {
       browser: "brave",
     });
 
-    expect(spawnSyncMock).toHaveBeenCalledTimes(2);
+    // Metadata still uses spawnSync
+    expect(spawnSyncMock).toHaveBeenCalledTimes(1);
     expect(spawnSyncMock.mock.calls[0][1]).toContain("--cookies-from-browser");
-    expect(spawnSyncMock.mock.calls[0][1]).toContain("brave");
-    expect(spawnSyncMock.mock.calls[1][1]).toContain("--cookies-from-browser");
-    expect(spawnSyncMock.mock.calls[1][1]).toContain("brave");
-    expect(spawnSyncMock.mock.calls[1][1]).toContain(
-      "/tmp/nota-youtube-test/demo-demo-title.mp3",
-    );
+
+    // Download uses async spawn
+    expect(spawnMock).toHaveBeenCalledTimes(1);
+    const downloadArgs: string[] = spawnMock.mock.calls[0][1];
+    expect(downloadArgs).toContain("--cookies-from-browser");
+    expect(downloadArgs).toContain("brave");
+    expect(downloadArgs).toContain("--newline");
+    expect(downloadArgs).toContain("--progress");
+  });
+
+  it("emits metadata and downloading events during download", async () => {
+    existsSyncMock.mockReturnValueOnce(false);
+    mkdirMock.mockResolvedValueOnce(undefined);
+    spawnSyncMock.mockReturnValueOnce({
+      status: 0,
+      stdout: JSON.stringify({
+        id: "abc123xyz00",
+        title: "Demo",
+        webpage_url: "https://www.youtube.com/watch?v=abc123xyz00",
+      }),
+      stderr: "",
+    });
+    makeSpawnResult([
+      "[download]  45.2% of 32.4MiB at 1.2MiB/s ETA 00:14",
+      "[download] 100% of 32.4MiB",
+    ]);
+
+    const events: DownloadProgressEvent[] = [];
+    await downloadYoutubeAudio({
+      url: "https://www.youtube.com/watch?v=abc123xyz00",
+      outputBasePath: "/tmp/test",
+      onProgress: (e) => events.push(e),
+    });
+
+    expect(events).toContainEqual({ type: "metadata" });
+    expect(events).toContainEqual({
+      type: "downloading",
+      line: "[download]  45.2% of 32.4MiB at 1.2MiB/s ETA 00:14",
+    });
+    expect(events).toContainEqual({ type: "done" });
   });
 
   it("reuses an existing mp3 at the derived title-based path", async () => {

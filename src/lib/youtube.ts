@@ -1,9 +1,10 @@
 import { existsSync } from "node:fs";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
 
 import { deriveYoutubeAudioPath } from "./fs.js";
+import type { DownloadProgressEvent } from "./progress.js";
 
 export interface YoutubeMetadata {
   videoId: string;
@@ -15,6 +16,7 @@ export interface DownloadYoutubeAudioOptions {
   url: string;
   outputBasePath: string;
   browser?: string;
+  onProgress?: (e: DownloadProgressEvent) => void;
 }
 
 export function normalizeYoutubeUrl(input: string): URL {
@@ -80,11 +82,48 @@ export async function fetchYoutubeMetadata(
   };
 }
 
+async function spawnYtDlpDownload(
+  args: string[],
+  onProgress?: (e: DownloadProgressEvent) => void,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const proc = spawn("yt-dlp", args);
+    let stderr = "";
+
+    proc.stdout.on("data", (chunk: Buffer) => {
+      const text = chunk.toString();
+      for (const line of text.split("\n")) {
+        const trimmed = line.trim();
+        if (trimmed) {
+          onProgress?.({ type: "downloading", line: trimmed });
+        }
+      }
+    });
+
+    proc.stderr.on("data", (chunk: Buffer) => {
+      stderr += chunk.toString();
+    });
+
+    proc.on("close", (code) => {
+      if (code === 0) {
+        onProgress?.({ type: "done" });
+        resolve();
+      } else {
+        reject(new Error(stderr || `yt-dlp exited with code ${code}`));
+      }
+    });
+
+    proc.on("error", (err) => reject(err));
+  });
+}
+
 export async function downloadYoutubeAudio(
   options: DownloadYoutubeAudioOptions,
 ): Promise<{ audioPath: string; metadata: YoutubeMetadata }> {
   const normalizedUrl = normalizeYoutubeUrl(options.url);
   const metadata = await fetchYoutubeMetadata(normalizedUrl.href, options.browser);
+  options.onProgress?.({ type: "metadata" });
+
   const audioPath = deriveYoutubeAudioPath(
     options.outputBasePath,
     metadata.title,
@@ -93,6 +132,7 @@ export async function downloadYoutubeAudio(
   await mkdir(path.dirname(audioPath), { recursive: true });
 
   if (existsSync(audioPath)) {
+    options.onProgress?.({ type: "done" });
     return { audioPath, metadata };
   }
 
@@ -103,6 +143,8 @@ export async function downloadYoutubeAudio(
     "--audio-quality",
     "0",
     "--no-playlist",
+    "--newline",
+    "--progress",
     "-o",
     audioPath,
   ];
@@ -113,10 +155,7 @@ export async function downloadYoutubeAudio(
 
   args.push(normalizedUrl.href);
 
-  const result = spawnSync("yt-dlp", args, { encoding: "utf8" });
-  if (result.status !== 0) {
-    throw new Error(result.stderr || "Failed to download YouTube audio");
-  }
+  await spawnYtDlpDownload(args, options.onProgress);
 
   return { audioPath, metadata };
 }
