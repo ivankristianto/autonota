@@ -3,6 +3,7 @@ import { stat } from "node:fs/promises";
 import path from "node:path";
 
 import { SAFE_UPLOAD_BYTES, cleanupFiles, getAudioDurationSeconds, planChunkDuration, splitAudioToMp3Chunks } from "./audio.js";
+import type { TranscribeProgressEvent } from "./progress.js";
 import type { TranscriptDocument, TranscriptSegment, TranscriptSource } from "../types.js";
 
 const MAX_RETRIES = 3;
@@ -114,13 +115,34 @@ function getErrorMessage(error: unknown): string {
   return "";
 }
 
-function delay(seconds: number): Promise<void> {
+async function delayWithTicks(
+  seconds: number,
+  onProgress: ((e: TranscribeProgressEvent) => void) | undefined,
+): Promise<void> {
   return new Promise((resolve) => {
-    setTimeout(resolve, seconds * 1000);
+    const totalMs = seconds * 1000;
+    const startTime = Date.now();
+
+    let intervalId: ReturnType<typeof setInterval> | undefined;
+    if (onProgress) {
+      intervalId = setInterval(() => {
+        const elapsed = Date.now() - startTime;
+        const remaining = Math.max(0, (totalMs - elapsed) / 1000);
+        onProgress({ type: "rate-limit-tick", remainingSeconds: remaining });
+      }, 10_000);
+    }
+
+    setTimeout(() => {
+      if (intervalId !== undefined) clearInterval(intervalId);
+      resolve();
+    }, totalMs);
   });
 }
 
-export async function withRateLimitRetry<T>(fn: () => Promise<T>): Promise<T> {
+export async function withRateLimitRetry<T>(
+  fn: () => Promise<T>,
+  onProgress?: (e: TranscribeProgressEvent) => void,
+): Promise<T> {
   let lastError: unknown;
 
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt += 1) {
@@ -138,10 +160,13 @@ export async function withRateLimitRetry<T>(fn: () => Promise<T>): Promise<T> {
       }
 
       const waitTime = parseWaitTime(getErrorMessage(error));
-      process.stderr.write(
-        `Rate limited. Retrying in ${waitTime.toFixed(1)}s (attempt ${attempt + 1}/${MAX_RETRIES}).\n`,
-      );
-      await delay(waitTime);
+      onProgress?.({
+        type: "rate-limited",
+        waitSeconds: waitTime,
+        attempt: attempt + 1,
+        max: MAX_RETRIES,
+      });
+      await delayWithTicks(waitTime, onProgress);
     }
   }
 

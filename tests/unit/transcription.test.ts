@@ -32,6 +32,7 @@ vi.mock("../../src/lib/audio.js", () => ({
   cleanupFiles: cleanupFilesMock,
 }));
 
+import type { TranscribeProgressEvent } from "../../src/lib/progress.js";
 import type { TranscriptSegment } from "../../src/types.js";
 import {
   buildTranscriptDocument,
@@ -58,57 +59,49 @@ describe("transcription helpers", () => {
   });
 
   it("retries 429-like errors and does not retry unrelated errors", async () => {
-    const stderrWrites: string[] = [];
-    const stderrWriteSpy = vi
-      .spyOn(process.stderr, "write")
-      .mockImplementation((chunk: string | Uint8Array) => {
-        stderrWrites.push(String(chunk));
-        return true;
-      });
-    const setTimeoutSpy = vi
-      .spyOn(globalThis, "setTimeout")
-      .mockImplementation(((callback: TimerHandler) => {
-        if (typeof callback === "function") {
-          callback();
-        }
+    const events: TranscribeProgressEvent[] = [];
+    const onProgress = (e: TranscribeProgressEvent): void => { events.push(e); };
 
-        return 0 as unknown as NodeJS.Timeout;
-      }) as unknown as typeof setTimeout);
+    vi.spyOn(globalThis, "setTimeout").mockImplementation(((callback: TimerHandler) => {
+      if (typeof callback === "function") callback();
+      return 0 as unknown as NodeJS.Timeout;
+    }) as unknown as typeof setTimeout);
+    vi.spyOn(globalThis, "setInterval").mockImplementation(
+      (() => 0 as unknown as NodeJS.Timeout) as unknown as typeof setInterval,
+    );
+    vi.spyOn(globalThis, "clearInterval").mockImplementation(() => undefined);
 
     let attempts = 0;
     const result = await withRateLimitRetry(async () => {
       attempts += 1;
       if (attempts === 1) {
-        const error = new Error("Please try again in 1s") as Error & {
-          status: number;
-        };
+        const error = new Error("Please try again in 1s") as Error & { status: number };
         error.status = 429;
         throw error;
       }
-
       return "ok";
-    });
+    }, onProgress);
 
     expect(result).toBe("ok");
     expect(attempts).toBe(2);
-    expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 1000);
-    expect(stderrWrites).toEqual([
-      "Rate limited. Retrying in 1.0s (attempt 2/3).\n",
-    ]);
+    expect(events).toContainEqual({
+      type: "rate-limited",
+      waitSeconds: 1,
+      attempt: 2,
+      max: 3,
+    });
 
+    // Non-rate-limit errors are not retried
     let failedAttempts = 0;
     await expect(
       withRateLimitRetry(async () => {
         failedAttempts += 1;
-        const error = new Error("boom") as Error & {
-          statusCode: number;
-        };
+        const error = new Error("boom") as Error & { statusCode: number };
         error.statusCode = 500;
         throw error;
-      }),
+      }, onProgress),
     ).rejects.toThrow("boom");
     expect(failedAttempts).toBe(1);
-    stderrWriteSpy.mockRestore();
   });
 
   it("preserves source metadata and timestamps when assembling a transcript", () => {
