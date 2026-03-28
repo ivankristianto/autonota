@@ -325,4 +325,68 @@ describe("transcription helpers", () => {
       }),
     ).rejects.toThrow(transcriptionError);
   });
+
+  it("emits uploading event for single-file transcription", async () => {
+    createReadStreamMock.mockImplementation((filePath: string) => ({ filePath }));
+    statMock.mockResolvedValueOnce({ size: 1024 });
+
+    const events: TranscribeProgressEvent[] = [];
+    const createMock = vi.fn().mockResolvedValueOnce({
+      segments: [{ start: 0, end: 1, text: "hello" }],
+    });
+
+    await transcribeAudio(
+      { audio: { transcriptions: { create: createMock } } },
+      {
+        audioPath: "/tmp/demo.mp3",
+        source: {
+          type: "youtube",
+          url: "https://www.youtube.com/watch?v=abc123xyz00",
+          videoId: "abc123xyz00",
+          title: "Demo",
+        },
+        durationSeconds: 30,
+        onProgress: (e) => events.push(e),
+      },
+    );
+
+    expect(events).toContainEqual({ type: "uploading" });
+  });
+
+  it("emits chunk events for chunked transcription", async () => {
+    statMock.mockResolvedValueOnce({ size: 48 * 1024 * 1024 });
+    getAudioDurationSecondsMock.mockResolvedValueOnce(120);
+    planChunkDurationMock.mockReturnValueOnce(60);
+    splitAudioToMp3ChunksMock.mockResolvedValueOnce([
+      "/tmp/chunk-000.mp3",
+      "/tmp/chunk-001.mp3",
+    ]);
+    getAudioDurationSecondsMock.mockResolvedValueOnce(60).mockResolvedValueOnce(60);
+    cleanupFilesMock.mockResolvedValueOnce(undefined);
+    createReadStreamMock.mockImplementation((filePath: string) => ({ filePath }));
+
+    const events: TranscribeProgressEvent[] = [];
+    const createMock = vi
+      .fn()
+      .mockResolvedValueOnce({ segments: [{ start: 0, end: 5, text: "one" }] })
+      .mockResolvedValueOnce({ segments: [{ start: 0, end: 5, text: "two" }] });
+
+    await transcribeAudio(
+      { audio: { transcriptions: { create: createMock } } },
+      {
+        audioPath: "/tmp/demo.mp3",
+        source: {
+          type: "youtube",
+          url: "https://www.youtube.com/watch?v=abc123xyz00",
+          videoId: "abc123xyz00",
+          title: "Demo",
+        },
+        tempDir: "/tmp",
+        onProgress: (e) => events.push(e),
+      },
+    );
+
+    expect(events).toContainEqual({ type: "chunk", index: 1, total: 2 });
+    expect(events).toContainEqual({ type: "chunk", index: 2, total: 2 });
+  });
 });

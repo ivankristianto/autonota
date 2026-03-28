@@ -41,6 +41,7 @@ export interface TranscribeUploadOptions {
 export interface TranscribeChunkedUploadOptions extends TranscribeUploadOptions {
   chunkPaths: string[];
   chunkDurationSeconds: number;
+  onProgress?: (e: TranscribeProgressEvent) => void;
 }
 
 export interface TranscribeAudioOptions {
@@ -52,6 +53,7 @@ export interface TranscribeAudioOptions {
   };
   tempDir?: string;
   durationSeconds?: number;
+  onProgress?: (e: TranscribeProgressEvent) => void;
 }
 
 export interface TranscriptDocumentInput {
@@ -183,18 +185,23 @@ function normalizeSegments(segments: WhisperSegment[] | undefined): TranscriptSe
 
 async function transcribeFile(
   client: WhisperClient,
-  options: TranscribeUploadOptions & { offsetSeconds?: number },
+  options: TranscribeUploadOptions & {
+    offsetSeconds?: number;
+    onProgress?: (e: TranscribeProgressEvent) => void;
+  },
 ): Promise<TranscriptSegment[]> {
-  const { audioPath, model, language, offsetSeconds = 0 } = options;
+  const { audioPath, model, language, offsetSeconds = 0, onProgress } = options;
 
-  const response = await withRateLimitRetry(() =>
-    client.audio.transcriptions.create({
-      file: createReadStream(audioPath),
-      model,
-      ...(language === "auto" ? {} : { language }),
-      response_format: "verbose_json",
-      timestamp_granularities: ["segment"],
-    }),
+  const response = await withRateLimitRetry(
+    () =>
+      client.audio.transcriptions.create({
+        file: createReadStream(audioPath),
+        model,
+        ...(language === "auto" ? {} : { language }),
+        response_format: "verbose_json",
+        timestamp_granularities: ["segment"],
+      }),
+    onProgress,
   );
 
   return normalizeSegments(response.segments).map((segment) => ({
@@ -206,7 +213,7 @@ async function transcribeFile(
 
 export async function transcribeSingleUpload(
   client: WhisperClient,
-  options: TranscribeUploadOptions,
+  options: TranscribeUploadOptions & { onProgress?: (e: TranscribeProgressEvent) => void },
 ): Promise<TranscriptSegment[]> {
   return transcribeFile(client, options);
 }
@@ -217,14 +224,18 @@ export async function transcribeChunkedUpload(
 ): Promise<TranscriptSegment[]> {
   const segments: TranscriptSegment[] = [];
   let offsetSeconds = 0;
+  const total = options.chunkPaths.length;
 
   try {
-    for (const chunkPath of options.chunkPaths) {
+    for (let i = 0; i < options.chunkPaths.length; i++) {
+      const chunkPath = options.chunkPaths[i];
+      options.onProgress?.({ type: "chunk", index: i + 1, total });
       const chunkSegments = await transcribeFile(client, {
         audioPath: chunkPath,
         model: options.model,
         language: options.language,
         offsetSeconds,
+        onProgress: options.onProgress,
       });
       segments.push(...chunkSegments);
       offsetSeconds += await getAudioDurationSeconds(chunkPath);
@@ -285,20 +296,25 @@ export async function transcribeAudio(
       )
     : [];
 
-  const segments =
-    !chunked
-      ? await transcribeSingleUpload(client, {
-          audioPath: options.audioPath,
-          model: transcription.model,
-          language: transcription.language,
-        })
-      : await transcribeChunkedUpload(client, {
-          audioPath: options.audioPath,
-          model: transcription.model,
-          language: transcription.language,
-          chunkDurationSeconds,
-          chunkPaths,
-        });
+  let segments: TranscriptSegment[];
+  if (!chunked) {
+    options.onProgress?.({ type: "uploading" });
+    segments = await transcribeSingleUpload(client, {
+      audioPath: options.audioPath,
+      model: transcription.model,
+      language: transcription.language,
+      onProgress: options.onProgress,
+    });
+  } else {
+    segments = await transcribeChunkedUpload(client, {
+      audioPath: options.audioPath,
+      model: transcription.model,
+      language: transcription.language,
+      chunkDurationSeconds,
+      chunkPaths,
+      onProgress: options.onProgress,
+    });
+  }
 
   return buildTranscriptDocument({
     source: options.source,
