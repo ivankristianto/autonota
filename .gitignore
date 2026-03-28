@@ -4,3 +4,4 @@ dist/
 .tmp*
 *.transcript.json
 *.summary.md
+docs/superpowers/

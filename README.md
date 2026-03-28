@@ -1,6 +1,6 @@
 # Nota
 
-`nota` is a Node CLI for downloading YouTube audio, transcribing it with OpenAI Whisper, and summarizing transcript JSON into Markdown.
+`nota` is a Node CLI for downloading YouTube audio, transcribing it with OpenAI Whisper into timestamped JSON, and summarizing transcript JSON into Markdown.
 
 ## Prerequisites
 
@@ -17,7 +17,7 @@ npm install
 npm run build
 ```
 
-## Commands
+## Usage
 
 ```bash
 nota transcribe <youtube-url> --output <base-path>
@@ -31,42 +31,46 @@ nota transcribe "https://www.youtube.com/watch?v=..." --output ./out/demo
 nota summarize ./out/demo.transcript.json --output ./out/demo.summary.md
 ```
 
-Verified help output:
+## Commands
+
+### Transcribe
 
 ```bash
 nota transcribe --help
 ```
 
-Supported flags:
+Flags:
 
-- `--output <basePath>`
-- `--model <name>`
-- `--lang <code>`
-- `--browser <name>`
-- `--force`
-- `--base-url <url>`
+- `--output <basePath>`: base path used to derive `<base>.transcript.json`
+- `--model <name>`: Whisper model override, defaults to `whisper-1`
+- `--lang <code>`: transcription language override, defaults to auto detection
+- `--browser <name>`: optional `yt-dlp --cookies-from-browser` source
+- `--force`: overwrite an existing transcript output
+- `--base-url <url>`: optional OpenAI-compatible base URL override
 
 Notes:
 
-- Timestamped transcript generation currently supports `whisper-1`.
+- Timestamped transcript generation currently supports only `whisper-1`.
 - Omit `--lang` to let the API auto-detect the source language.
+
+### Summarize
 
 ```bash
 nota summarize --help
 ```
 
-Supported flags:
+Flags:
 
-- `--output <summaryPath>`
-- `--model <name>`
-- `--summary-lang <code>`
-- `--force`
-- `--base-url <url>`
+- `--output <summaryPath>`: explicit summary file path
+- `--model <name>`: summary model override, defaults to `gpt-4.1-mini`
+- `--summary-lang <code>`: summary language override, defaults to `en`
+- `--force`: overwrite an existing summary output
+- `--base-url <url>`: optional OpenAI-compatible base URL override
 
-Artifacts:
+## Artifacts
 
 - `nota transcribe --output ./out/demo` writes `./out/demo.transcript.json`
-- `nota summarize ./out/demo.transcript.json --output ./out/demo.summary.md` writes Markdown summary output
+- `nota summarize ./out/demo.transcript.json --output ./out/demo.summary.md` writes `./out/demo.summary.md`
 
 ## Environment
 
