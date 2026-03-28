@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { realpathSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -68,8 +69,19 @@ async function main(): Promise<void> {
   }
 }
 
-const entryPath = process.argv[1] ? pathToFileURL(path.resolve(process.argv[1])).href : undefined;
+function isDirectExecution(
+  argv1: string | undefined = process.argv[1],
+  moduleUrl: string = import.meta.url,
+): boolean {
+  if (!argv1) {
+    return false;
+  }
 
-if (entryPath && import.meta.url === entryPath) {
+  const entryPath = pathToFileURL(realpathSync(path.resolve(argv1))).href;
+
+  return moduleUrl === entryPath;
+}
+
+if (isDirectExecution()) {
   void main();
 }

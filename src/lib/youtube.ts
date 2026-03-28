@@ -1,6 +1,9 @@
+import { existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
+
+import { deriveYoutubeAudioPath } from "./fs.js";
 
 export interface YoutubeMetadata {
   videoId: string;
@@ -10,7 +13,7 @@ export interface YoutubeMetadata {
 
 export interface DownloadYoutubeAudioOptions {
   url: string;
-  tempDir: string;
+  outputBasePath: string;
   browser?: string;
 }
 
@@ -82,9 +85,17 @@ export async function downloadYoutubeAudio(
 ): Promise<{ audioPath: string; metadata: YoutubeMetadata }> {
   const normalizedUrl = normalizeYoutubeUrl(options.url);
   const metadata = await fetchYoutubeMetadata(normalizedUrl.href, options.browser);
-  await mkdir(options.tempDir, { recursive: true });
+  const audioPath = deriveYoutubeAudioPath(
+    options.outputBasePath,
+    metadata.title,
+    metadata.videoId,
+  );
+  await mkdir(path.dirname(audioPath), { recursive: true });
 
-  const audioPath = path.join(options.tempDir, `${metadata.videoId}.mp3`);
+  if (existsSync(audioPath)) {
+    return { audioPath, metadata };
+  }
+
   const args = [
     "-x",
     "--audio-format",

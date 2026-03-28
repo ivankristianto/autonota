@@ -135,7 +135,7 @@ describe("transcribe command", () => {
     });
     expect(downloadYoutubeAudioMock).toHaveBeenCalledWith({
       url: "https://youtu.be/abc123xyz00",
-      tempDir: "/tmp/nota-run-123",
+      outputBasePath: "/work/out/demo",
       browser: "brave",
     });
     expect(transcribeAudioMock).toHaveBeenCalledWith(client, {
@@ -182,17 +182,56 @@ describe("transcribe command", () => {
     expect(rmMock).toHaveBeenCalledWith("/tmp/nota-run-456", { recursive: true, force: true });
   });
 
-  it("rejects unsupported transcription models before downloading audio", async () => {
-    await expect(
-      runTranscribeCommand("https://www.youtube.com/watch?v=abc123xyz00", {
-        output: "/work/out/demo",
-        model: "gpt-4o-transcribe",
-      }),
-    ).rejects.toThrow(/whisper-1/);
+  it("forwards custom transcription models to the transcription layer", async () => {
+    process.env.OPENAI_API_KEY = "test-key";
 
-    expect(mkdtempMock).not.toHaveBeenCalled();
-    expect(downloadYoutubeAudioMock).not.toHaveBeenCalled();
-    expect(transcribeAudioMock).not.toHaveBeenCalled();
+    mkdtempMock.mockResolvedValueOnce("/tmp/nota-run-456");
+    deriveTranscriptPathMock.mockReturnValueOnce("/work/out/demo.transcript.json");
+    openAiConstructorMock.mockReturnValueOnce({ tag: "openai-client" });
+    downloadYoutubeAudioMock.mockResolvedValueOnce({
+      audioPath: "/tmp/nota-run-456/audio.mp3",
+      metadata: {
+        type: "youtube" as const,
+        url: "https://www.youtube.com/watch?v=abc123xyz00",
+        videoId: "abc123xyz00",
+        title: "Demo Video",
+      },
+    });
+    transcribeAudioMock.mockResolvedValueOnce({
+      source: {
+        type: "youtube" as const,
+        url: "https://www.youtube.com/watch?v=abc123xyz00",
+        videoId: "abc123xyz00",
+        title: "Demo Video",
+      },
+      transcription: {
+        model: "whisper-large-v3",
+        language: "en",
+        generatedAt: "2026-03-27T00:00:00.000Z",
+      },
+      audio: {
+        durationSeconds: 30,
+        chunkCount: 1,
+      },
+      segments: [{ start: 0, end: 1, text: "hello" }],
+      fullText: "hello",
+    });
+
+    await runTranscribeCommand("https://www.youtube.com/watch?v=abc123xyz00", {
+      output: "/work/out/demo",
+      model: "whisper-large-v3",
+      lang: "en",
+    });
+
+    expect(transcribeAudioMock).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.objectContaining({
+        transcription: {
+          model: "whisper-large-v3",
+          language: "en",
+        },
+      }),
+    );
   });
 
   it("emits non-TTY task titles only when execution reaches each task", async () => {

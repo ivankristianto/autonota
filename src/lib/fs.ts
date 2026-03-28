@@ -6,6 +6,7 @@ import type { TranscriptDocument } from "../types.js";
 
 const TRANSCRIPT_SUFFIX = ".transcript.json";
 const SUMMARY_SUFFIX = ".summary.md";
+const AUDIO_SUFFIX = ".mp3";
 
 export function deriveTranscriptPath(basePath: string): string {
   return `${basePath}${TRANSCRIPT_SUFFIX}`;
@@ -21,6 +22,24 @@ export function deriveSummaryPath(basePathOrTranscriptPath: string): string {
   }
 
   return `${basePathOrTranscriptPath}${SUMMARY_SUFFIX}`;
+}
+
+function slugifyFilenameSegment(input: string): string {
+  const normalized = input
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+
+  return normalized.replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+}
+
+export function deriveYoutubeAudioPath(
+  basePath: string,
+  title: string | undefined,
+  videoId: string,
+): string {
+  const segment = slugifyFilenameSegment(title ?? "") || slugifyFilenameSegment(videoId) || videoId;
+  return `${basePath}-${segment}${AUDIO_SUFFIX}`;
 }
 
 export async function ensureParentDir(filePath: string): Promise<void> {
@@ -85,7 +104,7 @@ export async function readTranscript(filePath: string): Promise<TranscriptDocume
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
-  } catch (error) {
+  } catch (_error) {
     throw new Error(`Invalid transcript file at ${filePath}: invalid JSON`);
   }
 

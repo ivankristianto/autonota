@@ -24,12 +24,6 @@ export async function runTranscribeCommand(
   youtubeUrl: string,
   options: TranscribeCommandOptions,
 ): Promise<{ transcriptPath: string; transcript: TranscriptDocument }> {
-  if (options.model && options.model !== "whisper-1") {
-    throw new Error(
-      'Timestamped transcript generation currently supports only the "whisper-1" model.',
-    );
-  }
-
   const transcriptPath = deriveTranscriptPath(options.output);
   const tempDir = await mkdtemp(path.join(os.tmpdir(), "nota-transcribe-"));
 
@@ -65,7 +59,7 @@ export async function runTranscribeCommand(
         task: async () => {
           const download = await downloadYoutubeAudio({
             url: youtubeUrl,
-            tempDir,
+            outputBasePath: options.output,
             browser: options.browser,
           });
           audioPath = download.audioPath;

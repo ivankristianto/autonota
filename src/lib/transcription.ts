@@ -156,20 +156,11 @@ function normalizeSegments(segments: WhisperSegment[] | undefined): TranscriptSe
   }));
 }
 
-function assertTimestampedTranscriptionModel(model: string): void {
-  if (model !== "whisper-1") {
-    throw new Error(
-      'Timestamped transcript generation currently supports only the "whisper-1" model.',
-    );
-  }
-}
-
 async function transcribeFile(
   client: WhisperClient,
   options: TranscribeUploadOptions & { offsetSeconds?: number },
 ): Promise<TranscriptSegment[]> {
   const { audioPath, model, language, offsetSeconds = 0 } = options;
-  assertTimestampedTranscriptionModel(model);
 
   const response = await withRateLimitRetry(() =>
     client.audio.transcriptions.create({
@@ -250,7 +241,6 @@ export async function transcribeAudio(
     model: options.transcription?.model ?? "whisper-1",
     language: options.transcription?.language ?? "auto",
   };
-  assertTimestampedTranscriptionModel(transcription.model);
 
   const fileSizeBytes = (await stat(options.audioPath)).size;
   const durationSeconds =

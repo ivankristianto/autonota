@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
-import sampleTranscript from "../fixtures/sample-transcript.json" with { type: "json" };
+import sampleTranscriptJson from "../fixtures/sample-transcript.json" with { type: "json" };
+import type { TranscriptDocument } from "../../src/types.js";
+const sampleTranscript = sampleTranscriptJson as TranscriptDocument;
 
 import {
   buildSummaryPrompt,

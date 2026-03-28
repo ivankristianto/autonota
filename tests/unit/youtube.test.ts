@@ -1,12 +1,17 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const { spawnSyncMock, mkdirMock } = vi.hoisted(() => ({
+const { spawnSyncMock, mkdirMock, existsSyncMock } = vi.hoisted(() => ({
   spawnSyncMock: vi.fn(),
   mkdirMock: vi.fn(),
+  existsSyncMock: vi.fn(),
 }));
 
 vi.mock("node:child_process", () => ({
   spawnSync: spawnSyncMock,
+}));
+
+vi.mock("node:fs", () => ({
+  existsSync: existsSyncMock,
 }));
 
 vi.mock("node:fs/promises", () => ({
@@ -22,6 +27,7 @@ import {
 afterEach(() => {
   spawnSyncMock.mockReset();
   mkdirMock.mockReset();
+  existsSyncMock.mockReset();
 });
 
 describe("youtube helpers", () => {
@@ -47,6 +53,7 @@ describe("youtube helpers", () => {
   });
 
   it("threads browser cookies through metadata fetch and download", async () => {
+    existsSyncMock.mockReturnValueOnce(false);
     spawnSyncMock
       .mockReturnValueOnce({
         status: 0,
@@ -65,7 +72,7 @@ describe("youtube helpers", () => {
 
     await downloadYoutubeAudio({
       url: "https://www.youtube.com/watch?v=abc123xyz00",
-      tempDir: "/tmp/nota-youtube-test",
+      outputBasePath: "/tmp/nota-youtube-test/demo",
       browser: "brave",
     });
 
@@ -74,5 +81,29 @@ describe("youtube helpers", () => {
     expect(spawnSyncMock.mock.calls[0][1]).toContain("brave");
     expect(spawnSyncMock.mock.calls[1][1]).toContain("--cookies-from-browser");
     expect(spawnSyncMock.mock.calls[1][1]).toContain("brave");
+    expect(spawnSyncMock.mock.calls[1][1]).toContain(
+      "/tmp/nota-youtube-test/demo-demo-title.mp3",
+    );
+  });
+
+  it("reuses an existing mp3 at the derived title-based path", async () => {
+    existsSyncMock.mockReturnValueOnce(true);
+    spawnSyncMock.mockReturnValueOnce({
+      status: 0,
+      stdout: JSON.stringify({
+        id: "abc123xyz00",
+        title: "Demo title",
+        webpage_url: "https://www.youtube.com/watch?v=abc123xyz00",
+      }),
+      stderr: "",
+    });
+
+    const result = await downloadYoutubeAudio({
+      url: "https://www.youtube.com/watch?v=abc123xyz00",
+      outputBasePath: "/tmp/nota-youtube-test/demo",
+    });
+
+    expect(spawnSyncMock).toHaveBeenCalledTimes(1);
+    expect(result.audioPath).toBe("/tmp/nota-youtube-test/demo-demo-title.mp3");
   });
 });

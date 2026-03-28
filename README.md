@@ -50,7 +50,7 @@ Flags:
 
 Notes:
 
-- Timestamped transcript generation currently supports only `whisper-1`.
+- Downloaded MP3s are stored beside the `--output` base path as `<base>-<youtube-title-slug>.mp3` and reused if that file already exists.
 - Omit `--lang` to let the API auto-detect the source language.
 
 ### Summarize
