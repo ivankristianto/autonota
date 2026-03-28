@@ -133,20 +133,27 @@ describe("transcribe command", () => {
       apiKey: "test-key",
       baseURL: "https://openrouter.example/v1",
     });
-    expect(downloadYoutubeAudioMock).toHaveBeenCalledWith({
-      url: "https://youtu.be/abc123xyz00",
-      outputBasePath: "/work/out/demo",
-      browser: "brave",
-    });
-    expect(transcribeAudioMock).toHaveBeenCalledWith(client, {
-      audioPath: "/tmp/nota-run-123/audio.mp3",
-      source: transcript.source,
-      transcription: {
-        model: "whisper-1",
-        language: "id",
-      },
-      tempDir: "/tmp/nota-run-123",
-    });
+    expect(downloadYoutubeAudioMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        url: "https://youtu.be/abc123xyz00",
+        outputBasePath: "/work/out/demo",
+        browser: "brave",
+        onProgress: expect.any(Function),
+      }),
+    );
+    expect(transcribeAudioMock).toHaveBeenCalledWith(
+      client,
+      expect.objectContaining({
+        audioPath: "/tmp/nota-run-123/audio.mp3",
+        source: transcript.source,
+        transcription: {
+          model: "whisper-1",
+          language: "id",
+        },
+        tempDir: "/tmp/nota-run-123",
+        onProgress: expect.any(Function),
+      }),
+    );
     expect(writeJsonMock).toHaveBeenCalledWith("/work/out/demo.transcript.json", transcript, {
       overwrite: true,
     });

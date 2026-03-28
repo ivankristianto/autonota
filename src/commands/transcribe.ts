@@ -6,7 +6,7 @@ import OpenAI from "openai";
 
 import { assertWritable, deriveTranscriptPath, writeJson } from "../lib/fs.js";
 import { checkTranscribeRequirements } from "../lib/requirements.js";
-import { printArtifactPaths, runTasks } from "../lib/tui.js";
+import { printArtifactPaths, renderDownloadEvent, renderTranscribeEvent, runTasks } from "../lib/tui.js";
 import { transcribeAudio } from "../lib/transcription.js";
 import { downloadYoutubeAudio } from "../lib/youtube.js";
 import type { TranscriptDocument } from "../types.js";
@@ -50,17 +50,21 @@ export async function runTranscribeCommand(
     await runTasks([
       {
         title: "checking requirements",
-        task: async () => {
+        task: async (_setOutput) => {
           checkTranscribeRequirements(process.env);
         },
       },
       {
         title: "downloading audio",
-        task: async () => {
+        task: async (setOutput) => {
           const download = await downloadYoutubeAudio({
             url: youtubeUrl,
             outputBasePath: options.output,
             browser: options.browser,
+            onProgress: (event) => {
+              const msg = renderDownloadEvent(event);
+              if (msg) setOutput(msg);
+            },
           });
           audioPath = download.audioPath;
           source = {
@@ -71,7 +75,7 @@ export async function runTranscribeCommand(
       },
       {
         title: "transcribing audio",
-        task: async () => {
+        task: async (setOutput) => {
           if (!audioPath || !source) {
             throw new Error("Audio download did not produce the expected inputs");
           }
@@ -84,12 +88,16 @@ export async function runTranscribeCommand(
               language: options.lang ?? "auto",
             },
             tempDir,
+            onProgress: (event) => {
+              const msg = renderTranscribeEvent(event);
+              if (msg) setOutput(msg);
+            },
           });
         },
       },
       {
         title: "writing transcript",
-        task: async () => {
+        task: async (_setOutput) => {
           if (!transcript) {
             throw new Error("Transcript was not created");
           }
