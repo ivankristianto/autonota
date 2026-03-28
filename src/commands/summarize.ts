@@ -31,13 +31,13 @@ export async function runSummarizeCommand(
   await runTasks([
     {
       title: "checking requirements",
-      task: async () => {
+      task: async (_setOutput) => {
         checkSummarizeRequirements(process.env);
       },
     },
     {
       title: "summarizing transcript",
-      task: async () => {
+      task: async (_setOutput) => {
         const transcript = await readTranscript(transcriptJson);
         markdown = await generateSummaryMarkdown(client, transcript, {
           model: options.model ?? "gpt-4.1-mini",
@@ -47,7 +47,7 @@ export async function runSummarizeCommand(
     },
     {
       title: "writing markdown summary",
-      task: async () => {
+      task: async (_setOutput) => {
         if (!markdown) {
           throw new Error("Summary markdown was not created");
         }

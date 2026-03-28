@@ -2,25 +2,32 @@ import { Listr } from "listr2";
 
 export interface TaskEntry {
   title: string;
-  task: () => Promise<void>;
+  task: (setOutput: (msg: string) => void) => Promise<void>;
 }
 
 export async function runTasks(tasks: TaskEntry[]): Promise<void> {
-  const shouldPrintProgress = !process.stdout.isTTY;
+  const isTTY = Boolean(process.stdout.isTTY);
   const list = new Listr(
     tasks.map((entry) => ({
       title: entry.title,
-      task: async () => {
-        if (shouldPrintProgress) {
+      task: async (_ctx: unknown, listrTask: unknown) => {
+        const setOutput = (msg: string): void => {
+          if (isTTY) {
+            (listrTask as { output: string }).output = msg;
+          } else {
+            process.stderr.write(`${msg}\n`);
+          }
+        };
+        if (!isTTY) {
           process.stderr.write(`${entry.title}\n`);
         }
-        await entry.task();
+        await entry.task(setOutput);
       },
     })),
     {
       concurrent: false,
       exitOnError: true,
-      renderer: process.stdout.isTTY ? "default" : "silent",
+      renderer: isTTY ? "default" : "silent",
     },
   );
 
