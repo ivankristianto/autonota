@@ -1,20 +1,27 @@
 #!/usr/bin/env node
 
-import { realpathSync } from "node:fs";
+import { readFileSync, realpathSync } from "node:fs";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
+import { pathToFileURL, fileURLToPath as fileURLToPathUtil } from "node:url";
 
 import { Command } from "commander";
 
 import { runSummarizeCommand } from "./commands/summarize.js";
 import { runTranscribeCommand } from "./commands/transcribe.js";
 
+function getPackageVersion(): string {
+  const packagePath = fileURLToPathUtil(new URL("../package.json", import.meta.url));
+  const pkg = JSON.parse(readFileSync(packagePath, "utf8")) as { version: string };
+  return pkg.version;
+}
+
 export function createProgram(): Command {
   const program = new Command();
 
   program
     .name("autonota")
-    .description("Download YouTube audio, transcribe it, and summarize transcripts");
+    .description("Download YouTube audio, transcribe it, and summarize transcripts")
+    .version(getPackageVersion());
 
   program
     .command("transcribe")
