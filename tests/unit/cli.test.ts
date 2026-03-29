@@ -6,6 +6,8 @@ import { spawnSync } from "node:child_process";
 
 import { describe, expect, it } from "vitest";
 
+import { createProgram } from "../../src/cli.js";
+
 describe("CLI entrypoint", () => {
   it("prints the version when --version is passed", async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), "autonota-cli-"));
@@ -24,6 +26,14 @@ describe("CLI entrypoint", () => {
     } finally {
       await rm(tempDir, { recursive: true, force: true });
     }
+  });
+
+  it("registers a diagnostics command", () => {
+    const program = createProgram();
+
+    const diagnosticsCommand = program.commands.find((command) => command.name() === "diagnostics");
+
+    expect(diagnosticsCommand).toBeDefined();
   });
 
   it("prints help when invoked through a symlinked bin path", async () => {

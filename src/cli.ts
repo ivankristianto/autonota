@@ -6,6 +6,7 @@ import { pathToFileURL, fileURLToPath as fileURLToPathUtil } from "node:url";
 
 import { Command } from "commander";
 
+import { runDiagnosticsCommand } from "./commands/diagnostics.js";
 import { runSummarizeCommand } from "./commands/summarize.js";
 import { runTranscribeCommand } from "./commands/transcribe.js";
 
@@ -75,6 +76,13 @@ export function createProgram(): Command {
         await runSummarizeCommand(transcriptJson, options);
       },
     );
+
+  program
+    .command("diagnostics")
+    .description("Check that all required tools are installed and configured")
+    .action(async () => {
+      await runDiagnosticsCommand();
+    });
 
   return program;
 }
