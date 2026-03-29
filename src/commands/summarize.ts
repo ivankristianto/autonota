@@ -1,12 +1,12 @@
 import OpenAI from "openai";
 
-import { assertWritable, readTranscript, writeText } from "../lib/fs.js";
+import { assertWritable, deriveSummaryPath, readTranscript, writeText } from "../lib/fs.js";
 import { checkSummarizeRequirements } from "../lib/requirements.js";
 import { generateSummaryMarkdown } from "../lib/summary.js";
 import { printArtifactPaths, runTasks } from "../lib/tui.js";
 
 export interface SummarizeCommandOptions {
-  output: string;
+  output?: string;
   model?: string;
   summaryLang?: string;
   force?: boolean;
@@ -17,7 +17,7 @@ export async function runSummarizeCommand(
   transcriptJson: string,
   options: SummarizeCommandOptions,
 ): Promise<{ summaryPath: string; markdown: string }> {
-  const summaryPath = options.output;
+  const summaryPath = options.output ?? deriveSummaryPath(transcriptJson);
   let markdown: string | undefined;
 
   assertWritable(summaryPath, options.force ?? false);
@@ -40,7 +40,7 @@ export async function runSummarizeCommand(
       task: async (_setOutput) => {
         const transcript = await readTranscript(transcriptJson);
         markdown = await generateSummaryMarkdown(client, transcript, {
-          model: options.model ?? "gpt-4.1-mini",
+          model: options.model ?? "gpt-5-mini",
           summaryLanguage: options.summaryLang ?? "en",
         });
       },

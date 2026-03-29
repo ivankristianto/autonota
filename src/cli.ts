@@ -39,7 +39,7 @@ export function createProgram(): Command {
   program
     .command("summarize")
     .argument("<transcriptJson>")
-    .requiredOption("--output <summaryPath>")
+    .option("--output <summaryPath>")
     .option("--model <name>")
     .option("--summary-lang <code>")
     .option("--force")

@@ -135,6 +135,24 @@ describe("summarize command", () => {
     expect(writeTextMock).not.toHaveBeenCalled();
   });
 
+  it("derives the output path from the transcript path when --output is omitted", async () => {
+    process.env.OPENAI_API_KEY = "test-key";
+    const markdown = "# Demo\n";
+
+    readTranscriptMock.mockResolvedValueOnce(sampleTranscript);
+    openAiConstructorMock.mockReturnValueOnce({ tag: "client" });
+    generateSummaryMarkdownMock.mockResolvedValueOnce(markdown);
+
+    const result = await runSummarizeCommand("/work/out/demo.transcript.json", {});
+
+    expect(writeTextMock).toHaveBeenCalledWith(
+      "/work/out/demo.summary.md",
+      markdown,
+      { overwrite: false },
+    );
+    expect(result.summaryPath).toBe("/work/out/demo.summary.md");
+  });
+
   it("registers the summarize command with the required options", () => {
     const program = createProgram();
 
@@ -144,7 +162,7 @@ describe("summarize command", () => {
     expect(summarizeCommand?.registeredArguments.map((argument) => argument.name())).toEqual([
       "transcriptJson",
     ]);
-    expect(summarizeCommand?.options.find((option) => option.long === "--output")?.required).toBe(true);
+    expect(summarizeCommand?.options.find((option) => option.long === "--output")?.mandatory).toBe(false);
     expect(summarizeCommand?.options.map((option) => option.long)).toEqual(
       expect.arrayContaining([
         "--output",
