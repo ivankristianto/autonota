@@ -64,7 +64,6 @@ Tests live in `tests/unit/` (per-module) and `tests/commands/` (command-level in
 
 The `TranscriptDocument` shape in `src/types.ts` is the stable contract between commands. Do not change it without explicit user approval.
 
-## Key Paths
+## Forbidden Paths
 
-- `docs/superpowers/specs/` — approved design docs
-- `docs/superpowers/plans/` — approved implementation plans
+- `docs/superpowers/` is gitignored and must never be recreated or committed. Do not write specs, plans, or any other files under this path.
