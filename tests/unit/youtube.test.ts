@@ -46,7 +46,7 @@ function makeSpawnResult(lines: string[], exitCode = 0): void {
 
   process.nextTick(() => {
     for (const line of lines) {
-      proc.stdout.emit("data", Buffer.from(`${line}\n`));
+      proc.stderr.emit("data", Buffer.from(`${line}\n`));
     }
     proc.emit("close", exitCode);
   });

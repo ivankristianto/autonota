@@ -8,6 +8,7 @@ import {
   assertWritable,
   deriveSummaryPath,
   deriveTranscriptPath,
+  deriveYoutubeAudioPath,
   readTranscript,
   writeText,
   writeJson,
@@ -16,6 +17,16 @@ import {
 describe("filesystem helpers", () => {
   it("derives transcript paths from a base path", () => {
     expect(deriveTranscriptPath("out/demo")).toBe("out/demo.transcript.json");
+  });
+
+  it("strips trailing slash from basePath when deriving transcript path", () => {
+    expect(deriveTranscriptPath("out/demo/")).toBe("out/demo.transcript.json");
+  });
+
+  it("strips trailing slash from basePath when deriving youtube audio path", () => {
+    expect(deriveYoutubeAudioPath("out/demo/", "My Video", "abc123")).toBe(
+      "out/demo-my-video.mp3",
+    );
   });
 
   it("derives summary paths from a base path", () => {

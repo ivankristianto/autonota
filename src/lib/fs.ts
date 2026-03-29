@@ -9,7 +9,7 @@ const SUMMARY_SUFFIX = ".summary.md";
 const AUDIO_SUFFIX = ".mp3";
 
 export function deriveTranscriptPath(basePath: string): string {
-  return `${basePath}${TRANSCRIPT_SUFFIX}`;
+  return `${basePath.replace(/[/\\]+$/, "")}${TRANSCRIPT_SUFFIX}`;
 }
 
 export function deriveSummaryPath(basePathOrTranscriptPath: string): string {
@@ -38,8 +38,9 @@ export function deriveYoutubeAudioPath(
   title: string | undefined,
   videoId: string,
 ): string {
+  const normalizedBase = basePath.replace(/[/\\]+$/, "");
   const segment = slugifyFilenameSegment(title ?? "") || slugifyFilenameSegment(videoId) || videoId;
-  return `${basePath}-${segment}${AUDIO_SUFFIX}`;
+  return `${normalizedBase}-${segment}${AUDIO_SUFFIX}`;
 }
 
 export async function ensureParentDir(filePath: string): Promise<void> {

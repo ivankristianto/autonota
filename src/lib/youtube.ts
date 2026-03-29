@@ -101,7 +101,14 @@ async function spawnYtDlpDownload(
     });
 
     proc.stderr.on("data", (chunk: Buffer) => {
-      stderr += chunk.toString();
+      const text = chunk.toString();
+      stderr += text;
+      for (const line of text.split("\n")) {
+        const trimmed = line.trim();
+        if (trimmed) {
+          onProgress?.({ type: "downloading", line: trimmed });
+        }
+      }
     });
 
     proc.on("close", (code) => {
