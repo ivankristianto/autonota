@@ -250,11 +250,11 @@ function parseSummaryResponse(response: SummaryParseResponse): SummaryResponseSh
   return response.output_parsed;
 }
 
-function pickString(value: unknown): string | undefined {
+export function pickString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
-function pickStringArray(value: unknown): string[] {
+export function pickStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) {
     return [];
   }
@@ -265,7 +265,7 @@ function pickStringArray(value: unknown): string[] {
     .filter(Boolean);
 }
 
-function pickSections(value: unknown): SummarySection[] {
+export function pickSections(value: unknown): SummarySection[] {
   if (!Array.isArray(value)) {
     return [];
   }
