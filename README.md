@@ -51,6 +51,9 @@ Flags:
 Notes:
 
 - Downloaded MP3s are stored beside the `--output` base path as `<base>-<youtube-title-slug>.mp3` and reused if that file already exists.
+- If `--output` ends with `/` or `\`, it is treated as a directory, producing:
+  - transcript: `<output-dir>/<slug>.transcript.json`
+  - audio: `<output-dir>/<slug>.mp3`
 - Omit `--lang` to let the API auto-detect the source language.
 
 ### Summarize
@@ -62,10 +65,36 @@ nota summarize --help
 Flags:
 
 - `--output <summaryPath>`: explicit summary file path
-- `--model <name>`: summary model override, defaults to `gpt-4.1-mini`
+- `--model <name>`: summary model override, defaults to `gpt-5-mini`
 - `--summary-lang <code>`: summary language override, defaults to `en`
 - `--force`: overwrite an existing summary output
 - `--base-url <url>`: optional OpenAI-compatible base URL override
+
+## Progress Output
+
+`nota transcribe` streams progress for the two slow steps:
+
+**Download** — yt-dlp progress lines appear under the spinner as they arrive:
+
+```
+↻ downloading audio
+    [download]  45.2% of 32.4MiB at 1.2MiB/s ETA 00:14
+```
+
+**Transcription** — shows which chunk is being uploaded, and counts down rate-limit waits:
+
+```
+↻ transcribing audio
+    chunk 2/5...
+```
+
+```
+↻ transcribing audio
+    rate limited, waiting 4m32s (attempt 2/3)...
+    retrying in 3m40s...
+```
+
+In non-TTY contexts (pipes, CI) all progress writes to stderr; stdout remains machine-readable artifact paths only.
 
 ## Artifacts
 

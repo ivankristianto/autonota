@@ -73,7 +73,11 @@ export async function fetchYoutubeMetadata(
     throw new Error(result.stderr || "Failed to fetch YouTube metadata");
   }
 
-  const payload = JSON.parse(result.stdout) as { id?: string; title?: string; webpage_url?: string };
+  const payload = JSON.parse(result.stdout) as {
+    id?: string;
+    title?: string;
+    webpage_url?: string;
+  };
   const videoId = payload.id ?? extractVideoId(normalizedUrl.href);
   const title = payload.title?.trim() || videoId;
   return {
@@ -132,11 +136,9 @@ export async function downloadYoutubeAudio(
   const metadata = await fetchYoutubeMetadata(normalizedUrl.href, options.browser);
   options.onProgress?.({ type: "metadata" });
 
-  const audioPath = options.audioFilePath ?? deriveYoutubeAudioPath(
-    options.outputBasePath,
-    metadata.title,
-    metadata.videoId,
-  );
+  const audioPath =
+    options.audioFilePath ??
+    deriveYoutubeAudioPath(options.outputBasePath, metadata.title, metadata.videoId);
   await mkdir(path.dirname(audioPath), { recursive: true });
 
   if (existsSync(audioPath)) {

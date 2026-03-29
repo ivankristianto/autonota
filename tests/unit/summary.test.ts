@@ -34,7 +34,8 @@ describe("summary helpers", () => {
         generatedAt: sampleTranscript.transcription.generatedAt,
         language: sampleTranscript.transcription.language,
       },
-      overview: "A practical walkthrough for making one on one meetings clearer and more actionable.",
+      overview:
+        "A practical walkthrough for making one on one meetings clearer and more actionable.",
       keyPoints: [
         "Set a clear structure before the meeting starts.",
         "Reserve time for blockers, decisions, and follow ups.",
@@ -65,7 +66,8 @@ describe("summary helpers", () => {
         generatedAt: sampleTranscript.transcription.generatedAt,
         language: sampleTranscript.transcription.language,
       },
-      overview: "A practical walkthrough for making one on one meetings clearer and more actionable.",
+      overview:
+        "A practical walkthrough for making one on one meetings clearer and more actionable.",
     });
 
     expect(markdown).toContain("- Duration: 2:05:00");
@@ -155,9 +157,7 @@ describe("summary helpers", () => {
         model: "gpt-4.1-mini",
         summaryLanguage: "en",
       }),
-    ).rejects.toThrow(
-      "OpenAI summary response was incomplete: max_output_tokens.",
-    );
+    ).rejects.toThrow("OpenAI summary response was incomplete: max_output_tokens.");
   });
 
   it("fails with a targeted error when structured output is missing", async () => {
@@ -169,7 +169,7 @@ describe("summary helpers", () => {
           output: [
             {
               type: "message",
-              content: [{ type: "output_text", text: "{\"overview\":\"hello\"}", parsed: null }],
+              content: [{ type: "output_text", text: '{"overview":"hello"}', parsed: null }],
             },
           ],
         }),

@@ -8,7 +8,7 @@ const {
   assertWritableMock,
   generateSummaryMarkdownMock,
   printArtifactPathsMock,
-  openAiConstructorMock,
+  createOpenAiClientMock,
   writeTextMock,
 } = vi.hoisted(() => ({
   checkSummarizeRequirementsMock: vi.fn(),
@@ -16,12 +16,12 @@ const {
   assertWritableMock: vi.fn(),
   generateSummaryMarkdownMock: vi.fn(),
   printArtifactPathsMock: vi.fn(),
-  openAiConstructorMock: vi.fn(),
+  createOpenAiClientMock: vi.fn(),
   writeTextMock: vi.fn(),
 }));
 
-vi.mock("openai", () => ({
-  default: openAiConstructorMock,
+vi.mock("../../src/lib/openai.js", () => ({
+  createOpenAiClient: createOpenAiClientMock,
 }));
 
 vi.mock("../../src/lib/requirements.js", () => ({
@@ -43,7 +43,8 @@ vi.mock("../../src/lib/summary.js", () => ({
 }));
 
 vi.mock("../../src/lib/tui.js", async () => {
-  const actual = await vi.importActual<typeof import("../../src/lib/tui.js")>("../../src/lib/tui.js");
+  const actual =
+    await vi.importActual<typeof import("../../src/lib/tui.js")>("../../src/lib/tui.js");
   return {
     ...actual,
     printArtifactPaths: printArtifactPathsMock,
@@ -59,7 +60,7 @@ afterEach(() => {
   assertWritableMock.mockReset();
   generateSummaryMarkdownMock.mockReset();
   printArtifactPathsMock.mockReset();
-  openAiConstructorMock.mockReset();
+  createOpenAiClientMock.mockReset();
   writeTextMock.mockReset();
   vi.restoreAllMocks();
   delete process.env.OPENAI_API_KEY;
@@ -80,10 +81,7 @@ describe("summarize command", () => {
     ].join("\n");
 
     readTranscriptMock.mockResolvedValueOnce(sampleTranscript);
-    openAiConstructorMock.mockImplementationOnce((options: unknown) => {
-      Object.assign(client, { options });
-      return client;
-    });
+    createOpenAiClientMock.mockReturnValueOnce(client);
     generateSummaryMarkdownMock.mockResolvedValueOnce(markdown);
 
     const result = await runSummarizeCommand("/work/out/demo.transcript.json", {
@@ -97,10 +95,10 @@ describe("summarize command", () => {
     expect(checkSummarizeRequirementsMock).toHaveBeenCalledWith(process.env);
     expect(assertWritableMock).toHaveBeenCalledWith("/work/out/demo.summary.md", true);
     expect(readTranscriptMock).toHaveBeenCalledWith("/work/out/demo.transcript.json");
-    expect(openAiConstructorMock).toHaveBeenCalledWith({
-      apiKey: "test-key",
-      baseURL: "https://openrouter.example/v1",
-    });
+    expect(createOpenAiClientMock).toHaveBeenCalledWith(
+      process.env,
+      "https://openrouter.example/v1",
+    );
     expect(generateSummaryMarkdownMock).toHaveBeenCalledWith(client, sampleTranscript, {
       model: "gpt-4.1-mini",
       summaryLanguage: "id",
@@ -121,7 +119,9 @@ describe("summarize command", () => {
     process.env.OPENAI_API_KEY = "test-key";
 
     assertWritableMock.mockImplementationOnce(() => {
-      throw new Error("Refusing to overwrite /work/out/demo.summary.md. Use --force to replace it.");
+      throw new Error(
+        "Refusing to overwrite /work/out/demo.summary.md. Use --force to replace it.",
+      );
     });
 
     await expect(
@@ -140,17 +140,31 @@ describe("summarize command", () => {
     const markdown = "# Demo\n";
 
     readTranscriptMock.mockResolvedValueOnce(sampleTranscript);
-    openAiConstructorMock.mockReturnValueOnce({ tag: "client" });
+    createOpenAiClientMock.mockReturnValueOnce({ tag: "client" });
     generateSummaryMarkdownMock.mockResolvedValueOnce(markdown);
 
     const result = await runSummarizeCommand("/work/out/demo.transcript.json", {});
 
-    expect(writeTextMock).toHaveBeenCalledWith(
-      "/work/out/demo.summary.md",
-      markdown,
-      { overwrite: false },
-    );
+    expect(writeTextMock).toHaveBeenCalledWith("/work/out/demo.summary.md", markdown, {
+      overwrite: false,
+    });
     expect(result.summaryPath).toBe("/work/out/demo.summary.md");
+  });
+
+  it("does not create an OpenAI client when requirements validation fails", async () => {
+    checkSummarizeRequirementsMock.mockImplementationOnce(() => {
+      throw new Error("missing OPENAI_API_KEY");
+    });
+
+    await expect(
+      runSummarizeCommand("/work/out/demo.transcript.json", {
+        output: "/work/out/demo.summary.md",
+      }),
+    ).rejects.toThrow("missing OPENAI_API_KEY");
+
+    expect(createOpenAiClientMock).not.toHaveBeenCalled();
+    expect(readTranscriptMock).not.toHaveBeenCalled();
+    expect(generateSummaryMarkdownMock).not.toHaveBeenCalled();
   });
 
   it("registers the summarize command with the required options", () => {
@@ -162,15 +176,11 @@ describe("summarize command", () => {
     expect(summarizeCommand?.registeredArguments.map((argument) => argument.name())).toEqual([
       "transcriptJson",
     ]);
-    expect(summarizeCommand?.options.find((option) => option.long === "--output")?.mandatory).toBe(false);
+    expect(summarizeCommand?.options.find((option) => option.long === "--output")?.mandatory).toBe(
+      false,
+    );
     expect(summarizeCommand?.options.map((option) => option.long)).toEqual(
-      expect.arrayContaining([
-        "--output",
-        "--model",
-        "--summary-lang",
-        "--force",
-        "--base-url",
-      ]),
+      expect.arrayContaining(["--output", "--model", "--summary-lang", "--force", "--base-url"]),
     );
   });
 });

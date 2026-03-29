@@ -7,14 +7,7 @@ export const SAFE_UPLOAD_BYTES = 24 * 1024 * 1024;
 export async function getAudioDurationSeconds(audioPath: string): Promise<number> {
   const result = spawnSync(
     "ffprobe",
-    [
-      "-v",
-      "quiet",
-      "-print_format",
-      "json",
-      "-show_format",
-      audioPath,
-    ],
+    ["-v", "quiet", "-print_format", "json", "-show_format", audioPath],
     { encoding: "utf8" },
   );
 

@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  stripYtDlpLine,
-  renderDownloadEvent,
-  renderTranscribeEvent,
-} from "../../src/lib/tui.js";
+import { stripYtDlpLine, renderDownloadEvent, renderTranscribeEvent } from "../../src/lib/tui.js";
 import type { DownloadProgressEvent, TranscribeProgressEvent } from "../../src/lib/progress.js";
 
 describe("stripYtDlpLine", () => {

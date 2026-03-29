@@ -25,16 +25,21 @@ export function createProgram(): Command {
     .option("--browser <name>")
     .option("--force")
     .option("--base-url <url>")
-    .action(async (youtubeUrl: string, options: {
-      output: string;
-      model?: string;
-      lang?: string;
-      browser?: string;
-      force?: boolean;
-      baseUrl?: string;
-    }) => {
-      await runTranscribeCommand(youtubeUrl, options);
-    });
+    .action(
+      async (
+        youtubeUrl: string,
+        options: {
+          output: string;
+          model?: string;
+          lang?: string;
+          browser?: string;
+          force?: boolean;
+          baseUrl?: string;
+        },
+      ) => {
+        await runTranscribeCommand(youtubeUrl, options);
+      },
+    );
 
   program
     .command("summarize")
@@ -44,15 +49,20 @@ export function createProgram(): Command {
     .option("--summary-lang <code>")
     .option("--force")
     .option("--base-url <url>")
-    .action(async (transcriptJson: string, options: {
-      output: string;
-      model?: string;
-      summaryLang?: string;
-      force?: boolean;
-      baseUrl?: string;
-    }) => {
-      await runSummarizeCommand(transcriptJson, options);
-    });
+    .action(
+      async (
+        transcriptJson: string,
+        options: {
+          output: string;
+          model?: string;
+          summaryLang?: string;
+          force?: boolean;
+          baseUrl?: string;
+        },
+      ) => {
+        await runSummarizeCommand(transcriptJson, options);
+      },
+    );
 
   return program;
 }

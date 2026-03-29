@@ -2,7 +2,13 @@ import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import path from "node:path";
 
-import { SAFE_UPLOAD_BYTES, cleanupFiles, getAudioDurationSeconds, planChunkDuration, splitAudioToMp3Chunks } from "./audio.js";
+import {
+  SAFE_UPLOAD_BYTES,
+  cleanupFiles,
+  getAudioDurationSeconds,
+  planChunkDuration,
+  splitAudioToMp3Chunks,
+} from "./audio.js";
 import type { TranscribeProgressEvent } from "./progress.js";
 import type { TranscriptDocument, TranscriptSegment, TranscriptSource } from "../types.js";
 
@@ -251,9 +257,7 @@ export async function transcribeChunkedUpload(
   return segments;
 }
 
-export function buildTranscriptDocument(
-  input: TranscriptDocumentInput,
-): TranscriptDocument {
+export function buildTranscriptDocument(input: TranscriptDocumentInput): TranscriptDocument {
   const segments = input.segments.map((segment) => ({
     start: segment.start,
     end: segment.end,

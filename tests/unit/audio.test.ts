@@ -1,10 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const { spawnSyncMock, mkdirMock, mkdtempMock, readdirMock } = vi.hoisted(() => ({
+const { spawnSyncMock, mkdirMock, mkdtempMock, readdirMock, unlinkMock } = vi.hoisted(() => ({
   spawnSyncMock: vi.fn(),
   mkdirMock: vi.fn(),
   mkdtempMock: vi.fn(),
   readdirMock: vi.fn(),
+  unlinkMock: vi.fn(),
 }));
 
 vi.mock("node:child_process", () => ({
@@ -15,16 +16,23 @@ vi.mock("node:fs/promises", () => ({
   mkdir: mkdirMock,
   mkdtemp: mkdtempMock,
   readdir: readdirMock,
-  unlink: vi.fn(),
+  unlink: unlinkMock,
 }));
 
-import { SAFE_UPLOAD_BYTES, planChunkDuration, splitAudioToMp3Chunks } from "../../src/lib/audio.js";
+import {
+  SAFE_UPLOAD_BYTES,
+  cleanupFiles,
+  getAudioDurationSeconds,
+  planChunkDuration,
+  splitAudioToMp3Chunks,
+} from "../../src/lib/audio.js";
 
 afterEach(() => {
   spawnSyncMock.mockReset();
   mkdirMock.mockReset();
   mkdtempMock.mockReset();
   readdirMock.mockReset();
+  unlinkMock.mockReset();
 });
 
 describe("audio helpers", () => {
@@ -63,5 +71,41 @@ describe("audio helpers", () => {
       "/tmp/nota-audio/run-123/current_chunk_000.mp3",
       "/tmp/nota-audio/run-123/current_chunk_001.mp3",
     ]);
+  });
+
+  it("throws when ffprobe exits non-zero while reading duration", async () => {
+    spawnSyncMock.mockReturnValueOnce({
+      status: 1,
+      stdout: "",
+      stderr: "ffprobe failed",
+    });
+
+    await expect(getAudioDurationSeconds("/tmp/audio.mp3")).rejects.toThrow("ffprobe failed");
+  });
+
+  it("throws when ffprobe output has no duration", async () => {
+    spawnSyncMock.mockReturnValueOnce({
+      status: 0,
+      stdout: JSON.stringify({ format: {} }),
+      stderr: "",
+    });
+
+    await expect(getAudioDurationSeconds("/tmp/audio.mp3")).rejects.toThrow(
+      "Unable to determine duration",
+    );
+  });
+
+  it("ignores ENOENT when cleaning up files", async () => {
+    unlinkMock.mockRejectedValueOnce(Object.assign(new Error("missing"), { code: "ENOENT" }));
+
+    await expect(cleanupFiles(["/tmp/missing.mp3"])).resolves.toBeUndefined();
+  });
+
+  it("rethrows non-ENOENT errors during cleanup", async () => {
+    unlinkMock.mockRejectedValueOnce(
+      Object.assign(new Error("permission denied"), { code: "EPERM" }),
+    );
+
+    await expect(cleanupFiles(["/tmp/protected.mp3"])).rejects.toThrow("permission denied");
   });
 });

@@ -2,11 +2,20 @@ import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-import OpenAI from "openai";
-
-import { assertWritable, deriveTranscriptPath, slugifyFilenameSegment, writeJson } from "../lib/fs.js";
+import {
+  assertWritable,
+  deriveTranscriptPath,
+  slugifyFilenameSegment,
+  writeJson,
+} from "../lib/fs.js";
+import { createOpenAiClient } from "../lib/openai.js";
 import { checkTranscribeRequirements } from "../lib/requirements.js";
-import { printArtifactPaths, renderDownloadEvent, renderTranscribeEvent, runTasks } from "../lib/tui.js";
+import {
+  printArtifactPaths,
+  renderDownloadEvent,
+  renderTranscribeEvent,
+  runTasks,
+} from "../lib/tui.js";
 import { transcribeAudio } from "../lib/transcription.js";
 import { downloadYoutubeAudio, fetchYoutubeMetadata } from "../lib/youtube.js";
 import type { TranscriptDocument } from "../types.js";
@@ -38,12 +47,7 @@ export async function runTranscribeCommand(
       assertWritable(transcriptPath, options.force ?? false);
     }
 
-    const baseURL = options.baseUrl ?? (process.env.OPENAI_BASE_URL?.trim() || undefined);
-
-    const client = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY ?? "",
-      ...(baseURL ? { baseURL } : {}),
-    });
+    let client: ReturnType<typeof createOpenAiClient> | undefined;
 
     let audioPath: string | undefined;
     let source:
@@ -61,6 +65,7 @@ export async function runTranscribeCommand(
         title: "checking requirements",
         task: async (_setOutput) => {
           checkTranscribeRequirements(process.env);
+          client = createOpenAiClient(process.env, options.baseUrl);
         },
       },
       {
@@ -101,6 +106,10 @@ export async function runTranscribeCommand(
       {
         title: "transcribing audio",
         task: async (setOutput) => {
+          if (!client) {
+            throw new Error("OpenAI client was not initialized");
+          }
+
           if (!audioPath || !source) {
             throw new Error("Audio download did not produce the expected inputs");
           }

@@ -29,16 +29,3 @@ export interface TranscriptDocument {
   segments: TranscriptSegment[];
   fullText: string;
 }
-
-export interface SummaryRequest {
-  transcript: TranscriptDocument;
-  model: string;
-  summaryLanguage: string;
-}
-
-export interface SummaryResult {
-  markdown: string;
-  model: string;
-  summaryLanguage: string;
-  generatedAt: string;
-}

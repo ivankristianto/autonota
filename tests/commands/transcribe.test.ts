@@ -11,7 +11,7 @@ const {
   fetchYoutubeMetadataMock,
   transcribeAudioMock,
   printArtifactPathsMock,
-  openAiConstructorMock,
+  createOpenAiClientMock,
 } = vi.hoisted(() => ({
   mkdtempMock: vi.fn(),
   rmMock: vi.fn(),
@@ -23,7 +23,7 @@ const {
   fetchYoutubeMetadataMock: vi.fn(),
   transcribeAudioMock: vi.fn(),
   printArtifactPathsMock: vi.fn(),
-  openAiConstructorMock: vi.fn(),
+  createOpenAiClientMock: vi.fn(),
 }));
 
 vi.mock("node:fs/promises", async () => {
@@ -35,8 +35,8 @@ vi.mock("node:fs/promises", async () => {
   };
 });
 
-vi.mock("openai", () => ({
-  default: openAiConstructorMock,
+vi.mock("../../src/lib/openai.js", () => ({
+  createOpenAiClient: createOpenAiClientMock,
 }));
 
 vi.mock("../../src/lib/requirements.js", () => ({
@@ -63,7 +63,8 @@ vi.mock("../../src/lib/transcription.js", () => ({
 }));
 
 vi.mock("../../src/lib/tui.js", async () => {
-  const actual = await vi.importActual<typeof import("../../src/lib/tui.js")>("../../src/lib/tui.js");
+  const actual =
+    await vi.importActual<typeof import("../../src/lib/tui.js")>("../../src/lib/tui.js");
   return {
     ...actual,
     printArtifactPaths: printArtifactPathsMock,
@@ -84,7 +85,7 @@ afterEach(() => {
   fetchYoutubeMetadataMock.mockReset();
   transcribeAudioMock.mockReset();
   printArtifactPathsMock.mockReset();
-  openAiConstructorMock.mockReset();
+  createOpenAiClientMock.mockReset();
   vi.restoreAllMocks();
   delete process.env.OPENAI_API_KEY;
 });
@@ -115,10 +116,7 @@ describe("transcribe command", () => {
 
     mkdtempMock.mockResolvedValueOnce("/tmp/nota-run-123");
     deriveTranscriptPathMock.mockReturnValueOnce("/work/out/demo.transcript.json");
-    openAiConstructorMock.mockImplementationOnce((options: unknown) => {
-      Object.assign(client, { options });
-      return client;
-    });
+    createOpenAiClientMock.mockReturnValueOnce(client);
     downloadYoutubeAudioMock.mockResolvedValueOnce({
       audioPath: "/tmp/nota-run-123/audio.mp3",
       metadata: transcript.source,
@@ -137,10 +135,10 @@ describe("transcribe command", () => {
     expect(checkTranscribeRequirementsMock).toHaveBeenCalledWith(process.env);
     expect(deriveTranscriptPathMock).toHaveBeenCalledWith("/work/out/demo");
     expect(assertWritableMock).toHaveBeenCalledWith("/work/out/demo.transcript.json", true);
-    expect(openAiConstructorMock).toHaveBeenCalledWith({
-      apiKey: "test-key",
-      baseURL: "https://openrouter.example/v1",
-    });
+    expect(createOpenAiClientMock).toHaveBeenCalledWith(
+      process.env,
+      "https://openrouter.example/v1",
+    );
     expect(downloadYoutubeAudioMock).toHaveBeenCalledWith(
       expect.objectContaining({
         url: "https://youtu.be/abc123xyz00",
@@ -181,7 +179,9 @@ describe("transcribe command", () => {
     mkdtempMock.mockResolvedValueOnce("/tmp/nota-run-456");
     deriveTranscriptPathMock.mockReturnValueOnce("/work/out/demo.transcript.json");
     assertWritableMock.mockImplementationOnce(() => {
-      throw new Error("Refusing to overwrite /work/out/demo.transcript.json. Use --force to replace it.");
+      throw new Error(
+        "Refusing to overwrite /work/out/demo.transcript.json. Use --force to replace it.",
+      );
     });
 
     await expect(
@@ -202,7 +202,7 @@ describe("transcribe command", () => {
 
     mkdtempMock.mockResolvedValueOnce("/tmp/nota-run-456");
     deriveTranscriptPathMock.mockReturnValueOnce("/work/out/demo.transcript.json");
-    openAiConstructorMock.mockReturnValueOnce({ tag: "openai-client" });
+    createOpenAiClientMock.mockReturnValueOnce({ tag: "openai-client" });
     downloadYoutubeAudioMock.mockResolvedValueOnce({
       audioPath: "/tmp/nota-run-456/audio.mp3",
       metadata: {
@@ -267,7 +267,7 @@ describe("transcribe command", () => {
 
     mkdtempMock.mockResolvedValueOnce("/tmp/nota-run-789");
     deriveTranscriptPathMock.mockReturnValueOnce("/work/out/demo.transcript.json");
-    openAiConstructorMock.mockReturnValueOnce({ tag: "openai-client" });
+    createOpenAiClientMock.mockReturnValueOnce({ tag: "openai-client" });
     downloadYoutubeAudioMock.mockRejectedValueOnce(new Error("download failed"));
 
     try {
@@ -285,10 +285,7 @@ describe("transcribe command", () => {
       stderrWriteSpy.mockRestore();
     }
 
-    expect(stderrWrites).toEqual([
-      "checking requirements\n",
-      "downloading audio\n",
-    ]);
+    expect(stderrWrites).toEqual(["checking requirements\n", "downloading audio\n"]);
     expect(transcribeAudioMock).not.toHaveBeenCalled();
     expect(writeJsonMock).not.toHaveBeenCalled();
   });
@@ -303,14 +300,18 @@ describe("transcribe command", () => {
     };
     const transcript = {
       source: { type: "youtube" as const, ...metadata },
-      transcription: { model: "whisper-1", language: "auto", generatedAt: "2026-03-29T00:00:00.000Z" },
+      transcription: {
+        model: "whisper-1",
+        language: "auto",
+        generatedAt: "2026-03-29T00:00:00.000Z",
+      },
       audio: { durationSeconds: 60, chunkCount: 1 },
       segments: [],
       fullText: "",
     };
 
     mkdtempMock.mockResolvedValueOnce("/tmp/nota-run-dir");
-    openAiConstructorMock.mockReturnValueOnce({ tag: "openai-client" });
+    createOpenAiClientMock.mockReturnValueOnce({ tag: "openai-client" });
     fetchYoutubeMetadataMock.mockResolvedValueOnce(metadata);
     downloadYoutubeAudioMock.mockResolvedValueOnce({
       audioPath: "/work/out/wp26/my-awesome-talk.mp3",
@@ -348,6 +349,24 @@ describe("transcribe command", () => {
     expect(result.transcriptPath).toBe("/work/out/wp26/my-awesome-talk.transcript.json");
   });
 
+  it("does not create an OpenAI client when requirement validation fails", async () => {
+    mkdtempMock.mockResolvedValueOnce("/tmp/nota-run-requirements");
+    deriveTranscriptPathMock.mockReturnValueOnce("/work/out/demo.transcript.json");
+    checkTranscribeRequirementsMock.mockImplementationOnce(() => {
+      throw new Error("missing OPENAI_API_KEY");
+    });
+
+    await expect(
+      runTranscribeCommand("https://www.youtube.com/watch?v=abc123xyz00", {
+        output: "/work/out/demo",
+      }),
+    ).rejects.toThrow("missing OPENAI_API_KEY");
+
+    expect(createOpenAiClientMock).not.toHaveBeenCalled();
+    expect(downloadYoutubeAudioMock).not.toHaveBeenCalled();
+    expect(transcribeAudioMock).not.toHaveBeenCalled();
+  });
+
   it("registers the transcribe command with the required options", async () => {
     const program = createProgram();
 
@@ -357,7 +376,9 @@ describe("transcribe command", () => {
     expect(transcribeCommand?.registeredArguments.map((argument) => argument.name())).toEqual([
       "youtube-url",
     ]);
-    expect(transcribeCommand?.options.find((option) => option.long === "--output")?.required).toBe(true);
+    expect(transcribeCommand?.options.find((option) => option.long === "--output")?.required).toBe(
+      true,
+    );
     expect(transcribeCommand?.options.map((option) => option.long)).toEqual(
       expect.arrayContaining([
         "--output",

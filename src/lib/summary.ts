@@ -1,4 +1,9 @@
-import type { SummaryRequest, TranscriptDocument } from "../types.js";
+import type { TranscriptDocument } from "../types.js";
+
+interface SummaryOptions {
+  model: string;
+  summaryLanguage: string;
+}
 
 interface SummarySection {
   heading: string;
@@ -104,7 +109,7 @@ const SUMMARY_RESPONSE_SCHEMA = {
 
 export function buildSummaryPrompt(
   transcript: TranscriptDocument,
-  options: Pick<SummaryRequest, "model" | "summaryLanguage">,
+  options: SummaryOptions,
 ): string {
   return [
     "You summarize transcript JSON into structured Markdown input.",
@@ -144,7 +149,7 @@ export function buildSummaryPrompt(
 export async function generateSummaryMarkdown(
   client: SummaryClient,
   transcript: TranscriptDocument,
-  options: Pick<SummaryRequest, "model" | "summaryLanguage">,
+  options: SummaryOptions,
 ): Promise<string> {
   const response = await client.responses.parse({
     model: options.model,
@@ -233,8 +238,7 @@ function parseSummaryResponse(response: SummaryParseResponse): SummaryResponseSh
 
   const refusal = response.output
     ?.flatMap((item) => item.content ?? [])
-    .find((content) => content.type === "refusal" && typeof content.refusal === "string")
-    ?.refusal;
+    .find((content) => content.type === "refusal" && typeof content.refusal === "string")?.refusal;
   if (refusal) {
     throw new Error(`OpenAI summary request was refused: ${refusal}`);
   }

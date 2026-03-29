@@ -24,6 +24,7 @@ vi.mock("node:fs/promises", () => ({
 import {
   downloadYoutubeAudio,
   extractVideoId,
+  fetchYoutubeMetadata,
   normalizeYoutubeUrl,
 } from "../../src/lib/youtube.js";
 import type { DownloadProgressEvent } from "../../src/lib/progress.js";
@@ -54,18 +55,22 @@ function makeSpawnResult(lines: string[], exitCode = 0): void {
 
 describe("youtube helpers", () => {
   it("normalizes youtube.com watch URLs", () => {
-    const url = normalizeYoutubeUrl(
-      "https://www.youtube.com/watch?v=abc123xyz00",
-    );
+    const url = normalizeYoutubeUrl("https://www.youtube.com/watch?v=abc123xyz00");
 
     expect(url.href).toBe("https://www.youtube.com/watch?v=abc123xyz00");
     expect(extractVideoId(url.href)).toBe("abc123xyz00");
   });
 
   it("extracts video ids from youtu.be short URLs", () => {
-    expect(extractVideoId("https://youtu.be/abc123xyz00?t=12")).toBe(
-      "abc123xyz00",
-    );
+    expect(extractVideoId("https://youtu.be/abc123xyz00?t=12")).toBe("abc123xyz00");
+  });
+
+  it("extracts video ids from embed URLs", () => {
+    expect(extractVideoId("https://www.youtube.com/embed/abc123xyz00")).toBe("abc123xyz00");
+  });
+
+  it("extracts video ids from shorts URLs", () => {
+    expect(extractVideoId("https://www.youtube.com/shorts/abc123xyz00")).toBe("abc123xyz00");
   });
 
   it("rejects lookalike youtube domains", () => {
@@ -158,5 +163,29 @@ describe("youtube helpers", () => {
 
     expect(spawnSyncMock).toHaveBeenCalledTimes(1);
     expect(result.audioPath).toBe("/tmp/nota-youtube-test/demo-demo-title.mp3");
+  });
+
+  it("throws a metadata error when yt-dlp exits non-zero", async () => {
+    spawnSyncMock.mockReturnValueOnce({
+      status: 1,
+      stdout: "",
+      stderr: "yt-dlp failed",
+    });
+
+    await expect(
+      fetchYoutubeMetadata("https://www.youtube.com/watch?v=abc123xyz00"),
+    ).rejects.toThrow("yt-dlp failed");
+  });
+
+  it("throws when yt-dlp metadata output is not valid JSON", async () => {
+    spawnSyncMock.mockReturnValueOnce({
+      status: 0,
+      stdout: "not-json",
+      stderr: "",
+    });
+
+    await expect(
+      fetchYoutubeMetadata("https://www.youtube.com/watch?v=abc123xyz00"),
+    ).rejects.toThrow();
   });
 });

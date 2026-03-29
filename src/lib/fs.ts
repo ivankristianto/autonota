@@ -53,9 +53,7 @@ export function assertWritable(filePath: string, force: boolean): void {
   }
 
   if (existsSync(filePath)) {
-    throw new Error(
-      `Refusing to overwrite ${filePath}. Use --force to replace it.`,
-    );
+    throw new Error(`Refusing to overwrite ${filePath}. Use --force to replace it.`);
   }
 }
 

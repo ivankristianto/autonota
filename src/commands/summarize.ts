@@ -1,6 +1,5 @@
-import OpenAI from "openai";
-
 import { assertWritable, deriveSummaryPath, readTranscript, writeText } from "../lib/fs.js";
+import { createOpenAiClient } from "../lib/openai.js";
 import { checkSummarizeRequirements } from "../lib/requirements.js";
 import { generateSummaryMarkdown } from "../lib/summary.js";
 import { printArtifactPaths, runTasks } from "../lib/tui.js";
@@ -19,25 +18,25 @@ export async function runSummarizeCommand(
 ): Promise<{ summaryPath: string; markdown: string }> {
   const summaryPath = options.output ?? deriveSummaryPath(transcriptJson);
   let markdown: string | undefined;
+  let client: ReturnType<typeof createOpenAiClient> | undefined;
 
   assertWritable(summaryPath, options.force ?? false);
-  const baseURL = options.baseUrl ?? (process.env.OPENAI_BASE_URL?.trim() || undefined);
-
-  const client = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY ?? "",
-    ...(baseURL ? { baseURL } : {}),
-  });
 
   await runTasks([
     {
       title: "checking requirements",
       task: async (_setOutput) => {
         checkSummarizeRequirements(process.env);
+        client = createOpenAiClient(process.env, options.baseUrl);
       },
     },
     {
       title: "summarizing transcript",
       task: async (_setOutput) => {
+        if (!client) {
+          throw new Error("OpenAI client was not initialized");
+        }
+
         const transcript = await readTranscript(transcriptJson);
         markdown = await generateSummaryMarkdown(client, transcript, {
           model: options.model ?? "gpt-5-mini",

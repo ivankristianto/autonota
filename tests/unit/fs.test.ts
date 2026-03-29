@@ -24,9 +24,7 @@ describe("filesystem helpers", () => {
   });
 
   it("strips trailing slash from basePath when deriving youtube audio path", () => {
-    expect(deriveYoutubeAudioPath("out/demo/", "My Video", "abc123")).toBe(
-      "out/demo-my-video.mp3",
-    );
+    expect(deriveYoutubeAudioPath("out/demo/", "My Video", "abc123")).toBe("out/demo-my-video.mp3");
   });
 
   it("derives summary paths from a base path", () => {
@@ -34,9 +32,7 @@ describe("filesystem helpers", () => {
   });
 
   it("derives summary paths from a transcript artifact path", () => {
-    expect(deriveSummaryPath("out/demo.transcript.json")).toBe(
-      "out/demo.summary.md",
-    );
+    expect(deriveSummaryPath("out/demo.transcript.json")).toBe("out/demo.summary.md");
   });
 
   it("rejects overwriting an existing file without --force", async () => {
@@ -57,9 +53,9 @@ describe("filesystem helpers", () => {
     await writeFile(existingPath, "{}", "utf8");
 
     try {
-      await expect(writeJson(existingPath, { replacement: true })).rejects.toMatchObject(
-        { code: "EEXIST" },
-      );
+      await expect(writeJson(existingPath, { replacement: true })).rejects.toMatchObject({
+        code: "EEXIST",
+      });
       await expect(readFile(existingPath, "utf8")).resolves.toBe("{}");
     } finally {
       await rm(tempDir, { recursive: true, force: true });
@@ -69,13 +65,11 @@ describe("filesystem helpers", () => {
   it("overwrites an existing file when overwrite is enabled", async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), "nota-fs-"));
     const existingPath = path.join(tempDir, "existing.json");
-    await writeFile(existingPath, "{\"old\":true}\n", "utf8");
+    await writeFile(existingPath, '{"old":true}\n', "utf8");
 
     try {
       await writeJson(existingPath, { replacement: true }, { overwrite: true });
-      await expect(readFile(existingPath, "utf8")).resolves.toContain(
-        '"replacement": true',
-      );
+      await expect(readFile(existingPath, "utf8")).resolves.toContain('"replacement": true');
     } finally {
       await rm(tempDir, { recursive: true, force: true });
     }
@@ -146,9 +140,7 @@ describe("filesystem helpers", () => {
     await writeFile(transcriptPath, JSON.stringify({ source: {} }), "utf8");
 
     try {
-      await expect(readTranscript(transcriptPath)).rejects.toThrow(
-        /Invalid transcript file/i,
-      );
+      await expect(readTranscript(transcriptPath)).rejects.toThrow(/Invalid transcript file/i);
     } finally {
       await rm(tempDir, { recursive: true, force: true });
     }

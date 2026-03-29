@@ -16,11 +16,13 @@ npm run test:watch   # run tests in watch mode
 ```
 
 Run a single test file:
+
 ```bash
 npx vitest run tests/unit/fs.test.ts
 ```
 
 Run the CLI locally:
+
 ```bash
 node dist/cli.js transcribe <youtube-url> --output <base-path>
 node dist/cli.js summarize <transcript-json> --output <summary.md>
@@ -52,7 +54,7 @@ Tests live in `tests/unit/` (per-module) and `tests/commands/` (command-level in
 - Write tests before production code changes and verify the failing test first.
 - Run the relevant tests before claiming a task is complete.
 - Transcription is intentionally constrained to `whisper-1` — it is the only Whisper model that returns segment-level timestamps. Do not change the default model without redesigning the transcript contract.
-- Default models: `whisper-1` for transcription, `gpt-4.1-mini` for summarization.
+- Default models: `whisper-1` for transcription, `gpt-5-mini` for summarization.
 - Keep the CLI scriptable; do not add interactive prompts or replace explicit flags with TUI dialogs.
 
 ## Artifact Conventions

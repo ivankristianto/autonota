@@ -74,10 +74,6 @@ export async function runTasks(tasks: TaskEntry[]): Promise<void> {
   await list.run();
 }
 
-export function printRetryNotice(message: string): void {
-  process.stderr.write(`${message}\n`);
-}
-
 export function printArtifactPaths(paths: { transcriptPath?: string; summaryPath?: string }): void {
   if (paths.transcriptPath) {
     process.stdout.write(`${paths.transcriptPath}\n`);
