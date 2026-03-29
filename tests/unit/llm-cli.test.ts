@@ -166,8 +166,7 @@ describe("spawnCli", () => {
       ["-p", "-", "--model", "claude-sonnet-4-6", "--output-format", "json"],
       { stdio: ["pipe", "pipe", "pipe"] },
     );
-    expect(child.stdin.write).toHaveBeenCalledWith("my prompt");
-    expect(child.stdin.end).toHaveBeenCalled();
+    expect(child.stdin.end).toHaveBeenCalledWith("my prompt");
     expect(result).toBe("ok");
   });
 

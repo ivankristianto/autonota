@@ -32,7 +32,7 @@ const REQUIRED_SUMMARY_FIELDS = [
   "actionItems",
 ] as const;
 
-export interface SummaryResponseShape {
+interface SummaryResponseShape {
   title?: unknown;
   overview?: unknown;
   keyPoints?: unknown;
@@ -115,8 +115,7 @@ export async function spawnCli(
       resolve(Buffer.concat(stdoutChunks).toString("utf8"));
     });
 
-    child.stdin.write(prompt);
-    child.stdin.end();
+    child.stdin.end(prompt);
   });
 }
 
