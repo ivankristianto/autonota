@@ -10,6 +10,7 @@ const {
   printArtifactPathsMock,
   createOpenAiClientMock,
   writeTextMock,
+  generateSummaryFromCliMock,
 } = vi.hoisted(() => ({
   checkSummarizeRequirementsMock: vi.fn(),
   readTranscriptMock: vi.fn(),
@@ -18,6 +19,7 @@ const {
   printArtifactPathsMock: vi.fn(),
   createOpenAiClientMock: vi.fn(),
   writeTextMock: vi.fn(),
+  generateSummaryFromCliMock: vi.fn(),
 }));
 
 vi.mock("../../src/lib/openai.js", () => ({
@@ -51,6 +53,10 @@ vi.mock("../../src/lib/tui.js", async () => {
   };
 });
 
+vi.mock("../../src/lib/llm-cli.js", () => ({
+  generateSummaryFromCli: generateSummaryFromCliMock,
+}));
+
 import { createProgram } from "../../src/cli.js";
 import { runSummarizeCommand } from "../../src/commands/summarize.js";
 
@@ -62,6 +68,7 @@ afterEach(() => {
   printArtifactPathsMock.mockReset();
   createOpenAiClientMock.mockReset();
   writeTextMock.mockReset();
+  generateSummaryFromCliMock.mockReset();
   vi.restoreAllMocks();
   delete process.env.OPENAI_API_KEY;
 });
@@ -92,7 +99,7 @@ describe("summarize command", () => {
       baseUrl: "https://openrouter.example/v1",
     });
 
-    expect(checkSummarizeRequirementsMock).toHaveBeenCalledWith(process.env);
+    expect(checkSummarizeRequirementsMock).toHaveBeenCalledWith(process.env, "openai");
     expect(assertWritableMock).toHaveBeenCalledWith("/work/out/demo.summary.md", true);
     expect(readTranscriptMock).toHaveBeenCalledWith("/work/out/demo.transcript.json");
     expect(createOpenAiClientMock).toHaveBeenCalledWith(
@@ -192,5 +199,57 @@ describe("summarize command", () => {
     expect(summarizeCommand?.options.map((option) => option.long)).toEqual(
       expect.arrayContaining(["--claude", "--codex"]),
     );
+  });
+
+  it("routes to the claude CLI provider when --claude is set", async () => {
+    const markdown = "# Summary via Claude\n";
+
+    readTranscriptMock.mockResolvedValueOnce(sampleTranscript);
+    generateSummaryFromCliMock.mockResolvedValueOnce(markdown);
+
+    const result = await runSummarizeCommand("/work/out/demo.transcript.json", {
+      output: "/work/out/demo.summary.md",
+      claude: true,
+    });
+
+    expect(checkSummarizeRequirementsMock).toHaveBeenCalledWith(process.env, "claude");
+    expect(generateSummaryFromCliMock).toHaveBeenCalledWith("claude", sampleTranscript, {
+      model: "claude-sonnet-4-6",
+      summaryLanguage: "en",
+    });
+    expect(writeTextMock).toHaveBeenCalledWith("/work/out/demo.summary.md", markdown, {
+      overwrite: false,
+    });
+    expect(result).toEqual({ summaryPath: "/work/out/demo.summary.md", markdown });
+  });
+
+  it("routes to the codex CLI provider when --codex is set", async () => {
+    const markdown = "# Summary via Codex\n";
+
+    readTranscriptMock.mockResolvedValueOnce(sampleTranscript);
+    generateSummaryFromCliMock.mockResolvedValueOnce(markdown);
+
+    const result = await runSummarizeCommand("/work/out/demo.transcript.json", {
+      output: "/work/out/demo.summary.md",
+      codex: true,
+      model: "gpt-5.4",
+    });
+
+    expect(checkSummarizeRequirementsMock).toHaveBeenCalledWith(process.env, "codex");
+    expect(generateSummaryFromCliMock).toHaveBeenCalledWith("codex", sampleTranscript, {
+      model: "gpt-5.4",
+      summaryLanguage: "en",
+    });
+    expect(result).toEqual({ summaryPath: "/work/out/demo.summary.md", markdown });
+  });
+
+  it("rejects when both --claude and --codex are set", async () => {
+    await expect(
+      runSummarizeCommand("/work/out/demo.transcript.json", {
+        output: "/work/out/demo.summary.md",
+        claude: true,
+        codex: true,
+      }),
+    ).rejects.toThrow(/--claude.*--codex/);
   });
 });

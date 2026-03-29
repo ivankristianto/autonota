@@ -50,6 +50,13 @@ export function checkCliRequirement(name: string): void {
   }
 }
 
-export function checkSummarizeRequirements(env: NodeJS.ProcessEnv): void {
-  assertOpenAiConfigured(env);
+export function checkSummarizeRequirements(
+  env: NodeJS.ProcessEnv,
+  provider: string = "openai",
+): void {
+  if (provider === "openai") {
+    assertOpenAiConfigured(env);
+  } else {
+    checkCliRequirement(provider);
+  }
 }
