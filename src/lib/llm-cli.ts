@@ -2,12 +2,11 @@ import { spawn } from "node:child_process";
 
 import type { TranscriptDocument } from "../types.js";
 import {
-  buildSummaryPrompt,
-  formatSummaryMarkdown,
-  pickSections,
-  pickString,
-  pickStringArray,
-} from "./summary.js";
+  buildSummaryCliArgs,
+  getSummaryCliInstallHint,
+  type CliSummaryProvider,
+} from "./summary-providers.js";
+import { buildSummaryPrompt, formatSummaryMarkdown } from "./summary.js";
 
 // ---------------------------------------------------------------------------
 // stripJsonFence
@@ -23,22 +22,82 @@ export function stripJsonFence(raw: string): string {
 // parseCliResponse
 // ---------------------------------------------------------------------------
 
-const REQUIRED_SUMMARY_FIELDS = [
-  "title",
-  "overview",
-  "keyPoints",
-  "timeline",
-  "notableQuotes",
-  "actionItems",
-] as const;
+interface SummaryTimelineSection {
+  heading: string;
+  bullets: string[];
+}
 
 interface SummaryResponseShape {
-  title?: unknown;
-  overview?: unknown;
-  keyPoints?: unknown;
-  timeline?: unknown;
-  notableQuotes?: unknown;
-  actionItems?: unknown;
+  title: string;
+  overview: string;
+  keyPoints: string[];
+  timeline: SummaryTimelineSection[];
+  notableQuotes: string[];
+  actionItems: string[];
+}
+
+function getRequiredField(parsed: Record<string, unknown>, field: string, stdout: string): unknown {
+  if (!(field in parsed)) {
+    throw new Error(
+      `CLI response JSON is missing required field "${field}". Raw output:\n${stdout}`,
+    );
+  }
+
+  return parsed[field];
+}
+
+function expectString(value: unknown, fieldPath: string, stdout: string): string {
+  if (typeof value !== "string") {
+    throw new Error(`CLI response field "${fieldPath}" must be a string. Raw output:\n${stdout}`);
+  }
+
+  return value.trim();
+}
+
+function expectStringArray(value: unknown, fieldPath: string, stdout: string): string[] {
+  if (!Array.isArray(value)) {
+    throw new Error(`CLI response field "${fieldPath}" must be an array. Raw output:\n${stdout}`);
+  }
+
+  const strings = value.filter((item): item is string => typeof item === "string");
+  if (strings.length !== value.length) {
+    throw new Error(
+      `CLI response field "${fieldPath}" must contain only strings. Raw output:\n${stdout}`,
+    );
+  }
+
+  return strings.map((item) => item.trim()).filter(Boolean);
+}
+
+function expectTimeline(value: unknown, stdout: string): SummaryTimelineSection[] {
+  if (!Array.isArray(value)) {
+    throw new Error(`CLI response field "timeline" must be an array. Raw output:\n${stdout}`);
+  }
+
+  return value.map((item, index) => {
+    if (typeof item !== "object" || item === null || Array.isArray(item)) {
+      throw new Error(
+        `CLI response field "timeline[${index}]" must be an object. Raw output:\n${stdout}`,
+      );
+    }
+
+    const section = item as Record<string, unknown>;
+    const heading = expectString(
+      getRequiredField(section, "heading", stdout),
+      `timeline[${index}].heading`,
+      stdout,
+    );
+    const bullets = expectStringArray(
+      getRequiredField(section, "bullets", stdout),
+      `timeline[${index}].bullets`,
+      stdout,
+    );
+
+    return {
+      heading,
+      bullets,
+    };
+  });
 }
 
 export function parseCliResponse(stdout: string): SummaryResponseShape {
@@ -55,38 +114,41 @@ export function parseCliResponse(stdout: string): SummaryResponseShape {
     throw new Error(`CLI response did not produce a JSON object. Raw output:\n${stdout}`);
   }
 
-  for (const field of REQUIRED_SUMMARY_FIELDS) {
-    if (!(field in (parsed as Record<string, unknown>))) {
-      throw new Error(
-        `CLI response JSON is missing required field "${field}". Raw output:\n${stdout}`,
-      );
-    }
-  }
+  const content = parsed as Record<string, unknown>;
 
-  return parsed as SummaryResponseShape;
+  return {
+    title: expectString(getRequiredField(content, "title", stdout), "title", stdout),
+    overview: expectString(getRequiredField(content, "overview", stdout), "overview", stdout),
+    keyPoints: expectStringArray(
+      getRequiredField(content, "keyPoints", stdout),
+      "keyPoints",
+      stdout,
+    ),
+    timeline: expectTimeline(getRequiredField(content, "timeline", stdout), stdout),
+    notableQuotes: expectStringArray(
+      getRequiredField(content, "notableQuotes", stdout),
+      "notableQuotes",
+      stdout,
+    ),
+    actionItems: expectStringArray(
+      getRequiredField(content, "actionItems", stdout),
+      "actionItems",
+      stdout,
+    ),
+  };
 }
 
 // ---------------------------------------------------------------------------
 // spawnCli
 // ---------------------------------------------------------------------------
 
-const INSTALL_HINTS: Record<string, string> = {
-  claude: "Install Claude Code: https://docs.anthropic.com/en/docs/claude-code",
-  codex: "Install Codex CLI: https://github.com/openai/codex",
-};
-
-const CLI_ARGS: Record<string, (model: string) => string[]> = {
-  claude: (model) => ["-p", "-", "--model", model, "--output-format", "json"],
-  codex: (model) => ["exec", "-", "--model", model],
-};
-
 export async function spawnCli(
-  provider: "claude" | "codex",
+  provider: CliSummaryProvider,
   prompt: string,
   model: string,
 ): Promise<string> {
   return new Promise<string>((resolve, reject) => {
-    const args = CLI_ARGS[provider](model);
+    const args = buildSummaryCliArgs(provider, model);
     const child = spawn(provider, args, {
       stdio: ["pipe", "pipe", "pipe"],
     });
@@ -99,7 +161,7 @@ export async function spawnCli(
 
     child.on("error", (err: Error & { code?: string }) => {
       if (err.code === "ENOENT") {
-        reject(new Error(`${provider} not found in PATH. ${INSTALL_HINTS[provider]}`));
+        reject(new Error(`${provider} not found in PATH. ${getSummaryCliInstallHint(provider)}`));
       } else {
         reject(err);
       }
@@ -134,7 +196,7 @@ export interface CliSummaryOptions {
 }
 
 export async function generateSummaryFromCli(
-  provider: "claude" | "codex",
+  provider: CliSummaryProvider,
   transcript: TranscriptDocument,
   options: CliSummaryOptions,
 ): Promise<string> {
@@ -151,10 +213,10 @@ export async function generateSummaryFromCli(
       generatedAt: transcript.transcription.generatedAt,
       language: transcript.transcription.language,
     },
-    overview: pickString(content.overview) ?? undefined,
-    keyPoints: pickStringArray(content.keyPoints),
-    timeline: pickSections(content.timeline),
-    notableQuotes: pickStringArray(content.notableQuotes),
-    actionItems: pickStringArray(content.actionItems),
+    overview: content.overview,
+    keyPoints: content.keyPoints,
+    timeline: content.timeline,
+    notableQuotes: content.notableQuotes,
+    actionItems: content.actionItems,
   });
 }

@@ -107,6 +107,48 @@ describe("parseCliResponse", () => {
   it("throws when CLI response is not a JSON object", () => {
     expect(() => parseCliResponse("[1,2,3]")).toThrow("CLI response did not produce a JSON object");
   });
+
+  it("throws when overview is not a string", () => {
+    const invalid = JSON.stringify({
+      title: "Test Title",
+      overview: 123,
+      keyPoints: ["point 1"],
+      timeline: [{ heading: "Intro", bullets: ["bullet"] }],
+      notableQuotes: ["quote"],
+      actionItems: ["action"],
+    });
+
+    expect(() => parseCliResponse(invalid)).toThrow('field "overview" must be a string');
+  });
+
+  it("throws when keyPoints contains non-string items", () => {
+    const invalid = JSON.stringify({
+      title: "Test Title",
+      overview: "Overview text",
+      keyPoints: ["point 1", 42],
+      timeline: [{ heading: "Intro", bullets: ["bullet"] }],
+      notableQuotes: ["quote"],
+      actionItems: ["action"],
+    });
+
+    expect(() => parseCliResponse(invalid)).toThrow('field "keyPoints" must contain only strings');
+  });
+
+  it("throws when timeline section has an invalid shape", () => {
+    const invalid = JSON.stringify({
+      title: "Test Title",
+      overview: "Overview text",
+      keyPoints: ["point 1"],
+      timeline: [
+        { heading: "Intro", bullets: ["ok"] },
+        { heading: 99, bullets: [] },
+      ],
+      notableQuotes: ["quote"],
+      actionItems: ["action"],
+    });
+
+    expect(() => parseCliResponse(invalid)).toThrow('field "timeline[1].heading" must be a string');
+  });
 });
 
 // ---------------------------------------------------------------------------

@@ -2,16 +2,13 @@ import { assertWritable, deriveSummaryPath, readTranscript, writeText } from "..
 import { generateSummaryFromCli } from "../lib/llm-cli.js";
 import { createOpenAiClient } from "../lib/openai.js";
 import { checkSummarizeRequirements } from "../lib/requirements.js";
+import {
+  getDefaultSummaryModel,
+  isCliSummaryProvider,
+  resolveSummaryProvider,
+} from "../lib/summary-providers.js";
 import { generateSummaryMarkdown } from "../lib/summary.js";
 import { printArtifactPaths, runTasks } from "../lib/tui.js";
-
-const DEFAULT_MODELS: Record<string, string> = {
-  openai: "gpt-5-mini",
-  claude: "claude-sonnet-4-6",
-  codex: "gpt-5.4-mini",
-};
-
-type Provider = "openai" | "claude" | "codex";
 
 export interface SummarizeCommandOptions {
   output?: string;
@@ -23,27 +20,18 @@ export interface SummarizeCommandOptions {
   codex?: boolean;
 }
 
-function resolveProvider(options: SummarizeCommandOptions): Provider {
-  if (options.claude && options.codex) {
-    throw new Error("Cannot use --claude and --codex together. Choose one.");
-  }
-  if (options.claude) return "claude";
-  if (options.codex) return "codex";
-  return "openai";
-}
-
 export async function runSummarizeCommand(
   transcriptJson: string,
   options: SummarizeCommandOptions,
 ): Promise<{ summaryPath: string; markdown: string }> {
-  const provider = resolveProvider(options);
-  const model = options.model ?? DEFAULT_MODELS[provider];
+  const provider = resolveSummaryProvider(options);
+  const model = options.model ?? getDefaultSummaryModel(provider);
   const summaryPath = options.output ?? deriveSummaryPath(transcriptJson);
   let markdown: string | undefined;
 
   assertWritable(summaryPath, options.force ?? false);
 
-  if (provider === "openai") {
+  if (!isCliSummaryProvider(provider)) {
     let client: ReturnType<typeof createOpenAiClient> | undefined;
 
     await runTasks([
