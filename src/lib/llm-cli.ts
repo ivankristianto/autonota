@@ -115,8 +115,10 @@ export async function spawnCli(
       resolve(Buffer.concat(stdoutChunks).toString("utf8"));
     });
 
-    child.stdin.on("error", () => {
-      // Suppress EPIPE if the child exits before reading stdin.
+    child.stdin.on("error", (err: Error & { code?: string }) => {
+      if (err.code !== "EPIPE") {
+        reject(err);
+      }
     });
     child.stdin.end(prompt);
   });
