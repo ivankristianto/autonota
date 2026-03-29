@@ -41,6 +41,7 @@ describe("summary provider metadata", () => {
       "-",
       "--model",
       "gpt-5.4-mini",
+      "--skip-git-repo-check",
     ]);
   });
 

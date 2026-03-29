@@ -225,9 +225,13 @@ describe("spawnCli", () => {
 
     await spawnCli("codex", "prompt text", "gpt-5.4-mini");
 
-    expect(mockSpawn).toHaveBeenCalledWith("codex", ["exec", "-", "--model", "gpt-5.4-mini"], {
-      stdio: ["pipe", "pipe", "pipe"],
-    });
+    expect(mockSpawn).toHaveBeenCalledWith(
+      "codex",
+      ["exec", "-", "--model", "gpt-5.4-mini", "--skip-git-repo-check"],
+      {
+        stdio: ["pipe", "pipe", "pipe"],
+      },
+    );
   });
 
   it("throws when CLI exits with non-zero code (surfaces stderr)", async () => {

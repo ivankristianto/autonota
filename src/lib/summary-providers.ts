@@ -24,7 +24,7 @@ const SUMMARY_PROVIDER_CONFIG: Record<SummaryProvider, SummaryProviderConfig> = 
   codex: {
     defaultModel: "gpt-5.4-mini",
     installHint: "Install Codex CLI: https://github.com/openai/codex",
-    buildCliArgs: (model) => ["exec", "-", "--model", model],
+    buildCliArgs: (model) => ["exec", "-", "--model", model, "--skip-git-repo-check"],
   },
 };
 
