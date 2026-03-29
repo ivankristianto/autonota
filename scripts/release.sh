@@ -67,24 +67,29 @@ fi
 info "On main branch"
 
 # npm auth
-if ! npm whoami &>/dev/null; then
+NPM_USER=$(npm whoami 2>/dev/null) || {
   error "Not authenticated with npm. Run 'npm login' first."
   exit 1
-fi
-NPM_USER=$(npm whoami 2>/dev/null)
+}
 info "Authenticated as $NPM_USER on npm"
 
 # ── 2. Version bump ────────────────────────────────────
 bold "Version bump"
 
 ORIGINAL_VERSION=$(jq -r '.version' package.json)
+
+# Pre-compute bumped versions
+NEXT_PATCH=$(jq -r '.version | split(".") | .[0:2] + [ (.[2] | tonumber + 1 | tostring) ] | join(".")' <<< "{\"version\":\"$ORIGINAL_VERSION\"}")
+NEXT_MINOR=$(jq -r '.version | split(".") | .[0:1] + [ (.[1] | tonumber + 1 | tostring), "0" ] | join(".")' <<< "{\"version\":\"$ORIGINAL_VERSION\"}")
+NEXT_MAJOR=$(jq -r '.version | split(".") | [ (.[0] | tonumber + 1 | tostring), "0", "0" ] | join(".")' <<< "{\"version\":\"$ORIGINAL_VERSION\"}")
+
 echo ""
 info "Current version: v$ORIGINAL_VERSION"
 echo ""
 echo "Select version bump:"
-echo "  1) patch  ($ORIGINAL_VERSION → $(jq -r '.version | split(".") | .[0:2] + [ (.[2] | tonumber + 1 | tostring) ] | join(".")' <<< "{\"version\":\"$ORIGINAL_VERSION\"}"))"
-echo "  2) minor  ($ORIGINAL_VERSION → $(jq -r '.version | split(".") | .[0:1] + [ (.[1] | tonumber + 1 | tostring), "0" ] | join(".")' <<< "{\"version\":\"$ORIGINAL_VERSION\"}"))"
-echo "  3) major  ($ORIGINAL_VERSION → $(jq -r '.version | split(".") | [ (.[0] | tonumber + 1 | tostring), "0", "0" ] | join(".")' <<< "{\"version\":\"$ORIGINAL_VERSION\"}"))"
+echo "  1) patch  ($ORIGINAL_VERSION → $NEXT_PATCH)"
+echo "  2) minor  ($ORIGINAL_VERSION → $NEXT_MINOR)"
+echo "  3) major  ($ORIGINAL_VERSION → $NEXT_MAJOR)"
 echo ""
 
 read -r -p "Enter choice [1-3]: " BUMP_CHOICE
@@ -98,15 +103,9 @@ esac
 
 # Calculate new version
 case "$BUMP_TYPE" in
-  patch)
-    NEW_VERSION=$(jq -r '.version | split(".") | .[0:2] + [ (.[2] | tonumber + 1 | tostring) ] | join(".")' package.json)
-    ;;
-  minor)
-    NEW_VERSION=$(jq -r '.version | split(".") | .[0:1] + [ (.[1] | tonumber + 1 | tostring), "0" ] | join(".")' package.json)
-    ;;
-  major)
-    NEW_VERSION=$(jq -r '.version | split(".") | [ (.[0] | tonumber + 1 | tostring), "0", "0" ] | join(".")' package.json)
-    ;;
+  patch) NEW_VERSION="$NEXT_PATCH" ;;
+  minor) NEW_VERSION="$NEXT_MINOR" ;;
+  major) NEW_VERSION="$NEXT_MAJOR" ;;
 esac
 
 # Bump version in package.json
@@ -175,6 +174,10 @@ if ! npm publish; then
 fi
 info "Published v$NEW_VERSION to npm"
 
+# Disable cleanup — package is live, commit+tag must stay
+COMMIT_CREATED=false
+GIT_TAG=""
+
 # ── 8. Push ─────────────────────────────────────────────
 bold "Pushing to GitHub"
 
@@ -195,11 +198,7 @@ fi
 info "Pushed commit and tag to GitHub"
 
 # ── Done ────────────────────────────────────────────────
-# Disable cleanup since everything succeeded
-COMMIT_CREATED=false
-GIT_TAG=""
-
 echo ""
 bold "Release v$NEW_VERSION complete!"
 echo "  npm:  https://www.npmjs.com/package/autonota"
-echo "  tag:  $GIT_TAG"
+echo "  tag:  v$NEW_VERSION"
