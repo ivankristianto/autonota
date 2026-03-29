@@ -1,6 +1,6 @@
 {
   "name": "autonota",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "CLI to transcribe YouTube audio and summarize transcripts",
   "type": "module",
   "bin": {
