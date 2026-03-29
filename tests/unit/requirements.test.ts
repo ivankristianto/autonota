@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   assertBinaryExists,
+  checkCliRequirement,
   checkSummarizeRequirements,
   checkTranscribeRequirements,
 } from "../../src/lib/requirements.js";
@@ -42,5 +43,34 @@ describe("requirements helpers", () => {
     expect(() =>
       checkTranscribeRequirements({ OPENAI_API_KEY: "test" } as NodeJS.ProcessEnv),
     ).toThrow(/yt-dlp|ffmpeg|ffprobe/);
+  });
+});
+
+describe("checkCliRequirement", () => {
+  afterEach(() => {
+    execFileSyncMock.mockReset();
+  });
+
+  it("passes when claude is found in PATH", () => {
+    execFileSyncMock.mockReturnValueOnce("/usr/local/bin/claude\n");
+    expect(() => checkCliRequirement("claude")).not.toThrow();
+    expect(execFileSyncMock).toHaveBeenCalledWith("which", ["claude"], {
+      encoding: "utf8",
+      stdio: "pipe",
+    });
+  });
+
+  it("throws when codex is not found in PATH", () => {
+    execFileSyncMock.mockImplementationOnce(() => {
+      throw new Error("command not found");
+    });
+    expect(() => checkCliRequirement("codex")).toThrow(/codex.*not found.*Install Codex/);
+  });
+
+  it("throws when claude is not found in PATH", () => {
+    execFileSyncMock.mockImplementationOnce(() => {
+      throw new Error("command not found");
+    });
+    expect(() => checkCliRequirement("claude")).toThrow(/claude.*not found.*Install Claude/);
   });
 });

@@ -37,6 +37,19 @@ export function checkTranscribeRequirements(env: NodeJS.ProcessEnv): void {
   }
 }
 
+const CLI_INSTALL_HINTS: Record<string, string> = {
+  claude: "Install Claude Code: https://docs.anthropic.com/en/docs/claude-code",
+  codex: "Install Codex CLI: https://github.com/openai/codex",
+};
+
+export function checkCliRequirement(name: string): void {
+  try {
+    execFileSync("which", [name], { encoding: "utf8", stdio: "pipe" });
+  } catch {
+    throw new Error(`${name} not found in PATH. ${CLI_INSTALL_HINTS[name] ?? `Install ${name}.`}`);
+  }
+}
+
 export function checkSummarizeRequirements(env: NodeJS.ProcessEnv): void {
   assertOpenAiConfigured(env);
 }
