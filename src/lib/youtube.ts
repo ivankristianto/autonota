@@ -15,6 +15,7 @@ export interface YoutubeMetadata {
 export interface DownloadYoutubeAudioOptions {
   url: string;
   outputBasePath: string;
+  audioFilePath?: string;
   browser?: string;
   onProgress?: (e: DownloadProgressEvent) => void;
 }
@@ -131,7 +132,7 @@ export async function downloadYoutubeAudio(
   const metadata = await fetchYoutubeMetadata(normalizedUrl.href, options.browser);
   options.onProgress?.({ type: "metadata" });
 
-  const audioPath = deriveYoutubeAudioPath(
+  const audioPath = options.audioFilePath ?? deriveYoutubeAudioPath(
     options.outputBasePath,
     metadata.title,
     metadata.videoId,

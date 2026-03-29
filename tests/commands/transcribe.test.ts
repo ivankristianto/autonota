@@ -8,6 +8,7 @@ const {
   assertWritableMock,
   writeJsonMock,
   downloadYoutubeAudioMock,
+  fetchYoutubeMetadataMock,
   transcribeAudioMock,
   printArtifactPathsMock,
   openAiConstructorMock,
@@ -19,6 +20,7 @@ const {
   assertWritableMock: vi.fn(),
   writeJsonMock: vi.fn(),
   downloadYoutubeAudioMock: vi.fn(),
+  fetchYoutubeMetadataMock: vi.fn(),
   transcribeAudioMock: vi.fn(),
   printArtifactPathsMock: vi.fn(),
   openAiConstructorMock: vi.fn(),
@@ -41,14 +43,19 @@ vi.mock("../../src/lib/requirements.js", () => ({
   checkTranscribeRequirements: checkTranscribeRequirementsMock,
 }));
 
-vi.mock("../../src/lib/fs.js", () => ({
-  deriveTranscriptPath: deriveTranscriptPathMock,
-  assertWritable: assertWritableMock,
-  writeJson: writeJsonMock,
-}));
+vi.mock("../../src/lib/fs.js", async () => {
+  const actual = await vi.importActual<typeof import("../../src/lib/fs.js")>("../../src/lib/fs.js");
+  return {
+    ...actual,
+    deriveTranscriptPath: deriveTranscriptPathMock,
+    assertWritable: assertWritableMock,
+    writeJson: writeJsonMock,
+  };
+});
 
 vi.mock("../../src/lib/youtube.js", () => ({
   downloadYoutubeAudio: downloadYoutubeAudioMock,
+  fetchYoutubeMetadata: fetchYoutubeMetadataMock,
 }));
 
 vi.mock("../../src/lib/transcription.js", () => ({
@@ -74,6 +81,7 @@ afterEach(() => {
   assertWritableMock.mockReset();
   writeJsonMock.mockReset();
   downloadYoutubeAudioMock.mockReset();
+  fetchYoutubeMetadataMock.mockReset();
   transcribeAudioMock.mockReset();
   printArtifactPathsMock.mockReset();
   openAiConstructorMock.mockReset();
@@ -283,6 +291,61 @@ describe("transcribe command", () => {
     ]);
     expect(transcribeAudioMock).not.toHaveBeenCalled();
     expect(writeJsonMock).not.toHaveBeenCalled();
+  });
+
+  it("places transcript and audio inside the directory when --output ends with a slash", async () => {
+    process.env.OPENAI_API_KEY = "test-key";
+
+    const metadata = {
+      videoId: "abc123xyz00",
+      title: "My Awesome Talk",
+      url: "https://www.youtube.com/watch?v=abc123xyz00",
+    };
+    const transcript = {
+      source: { type: "youtube" as const, ...metadata },
+      transcription: { model: "whisper-1", language: "auto", generatedAt: "2026-03-29T00:00:00.000Z" },
+      audio: { durationSeconds: 60, chunkCount: 1 },
+      segments: [],
+      fullText: "",
+    };
+
+    mkdtempMock.mockResolvedValueOnce("/tmp/nota-run-dir");
+    openAiConstructorMock.mockReturnValueOnce({ tag: "openai-client" });
+    fetchYoutubeMetadataMock.mockResolvedValueOnce(metadata);
+    downloadYoutubeAudioMock.mockResolvedValueOnce({
+      audioPath: "/work/out/wp26/my-awesome-talk.mp3",
+      metadata,
+    });
+    transcribeAudioMock.mockResolvedValueOnce(transcript);
+
+    const result = await runTranscribeCommand("https://youtu.be/abc123xyz00", {
+      output: "/work/out/wp26/",
+      force: false,
+    });
+
+    // deriveTranscriptPath is NOT called; path is derived inside the task
+    expect(deriveTranscriptPathMock).not.toHaveBeenCalled();
+
+    // assertWritable is called with the path inside the directory
+    expect(assertWritableMock).toHaveBeenCalledWith(
+      "/work/out/wp26/my-awesome-talk.transcript.json",
+      false,
+    );
+
+    // downloadYoutubeAudio is called with the explicit audio path inside the directory
+    expect(downloadYoutubeAudioMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        audioFilePath: "/work/out/wp26/my-awesome-talk.mp3",
+      }),
+    );
+
+    expect(writeJsonMock).toHaveBeenCalledWith(
+      "/work/out/wp26/my-awesome-talk.transcript.json",
+      transcript,
+      { overwrite: false },
+    );
+
+    expect(result.transcriptPath).toBe("/work/out/wp26/my-awesome-talk.transcript.json");
   });
 
   it("registers the transcribe command with the required options", async () => {

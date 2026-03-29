@@ -4,11 +4,11 @@ import path from "node:path";
 
 import OpenAI from "openai";
 
-import { assertWritable, deriveTranscriptPath, writeJson } from "../lib/fs.js";
+import { assertWritable, deriveTranscriptPath, slugifyFilenameSegment, writeJson } from "../lib/fs.js";
 import { checkTranscribeRequirements } from "../lib/requirements.js";
 import { printArtifactPaths, renderDownloadEvent, renderTranscribeEvent, runTasks } from "../lib/tui.js";
 import { transcribeAudio } from "../lib/transcription.js";
-import { downloadYoutubeAudio } from "../lib/youtube.js";
+import { downloadYoutubeAudio, fetchYoutubeMetadata } from "../lib/youtube.js";
 import type { TranscriptDocument } from "../types.js";
 
 export interface TranscribeCommandOptions {
@@ -24,11 +24,20 @@ export async function runTranscribeCommand(
   youtubeUrl: string,
   options: TranscribeCommandOptions,
 ): Promise<{ transcriptPath: string; transcript: TranscriptDocument }> {
-  const transcriptPath = deriveTranscriptPath(options.output);
+  const isDirMode = options.output.endsWith("/") || options.output.endsWith("\\");
+  let transcriptPath: string | undefined;
+
+  if (!isDirMode) {
+    transcriptPath = deriveTranscriptPath(options.output);
+  }
+
   const tempDir = await mkdtemp(path.join(os.tmpdir(), "nota-transcribe-"));
 
   try {
-    assertWritable(transcriptPath, options.force ?? false);
+    if (!isDirMode && transcriptPath) {
+      assertWritable(transcriptPath, options.force ?? false);
+    }
+
     const baseURL = options.baseUrl ?? (process.env.OPENAI_BASE_URL?.trim() || undefined);
 
     const client = new OpenAI({
@@ -57,9 +66,25 @@ export async function runTranscribeCommand(
       {
         title: "downloading audio",
         task: async (setOutput) => {
+          let audioFilePath: string | undefined;
+
+          if (isDirMode) {
+            const dir = options.output.replace(/[/\\]+$/, "");
+            const meta = await fetchYoutubeMetadata(youtubeUrl, options.browser);
+            const slug =
+              slugifyFilenameSegment(meta.title ?? "") ||
+              slugifyFilenameSegment(meta.videoId) ||
+              meta.videoId;
+            const base = path.join(dir, slug);
+            transcriptPath = `${base}.transcript.json`;
+            audioFilePath = `${base}.mp3`;
+            assertWritable(transcriptPath, options.force ?? false);
+          }
+
           const download = await downloadYoutubeAudio({
             url: youtubeUrl,
             outputBasePath: options.output,
+            audioFilePath,
             browser: options.browser,
             onProgress: (event) => {
               const msg = renderDownloadEvent(event);
@@ -98,7 +123,7 @@ export async function runTranscribeCommand(
       {
         title: "writing transcript",
         task: async (_setOutput) => {
-          if (!transcript) {
+          if (!transcript || !transcriptPath) {
             throw new Error("Transcript was not created");
           }
 
@@ -109,7 +134,7 @@ export async function runTranscribeCommand(
       },
     ]);
 
-    if (!transcript) {
+    if (!transcript || !transcriptPath) {
       throw new Error("Transcript was not created");
     }
 

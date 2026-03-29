@@ -24,7 +24,7 @@ export function deriveSummaryPath(basePathOrTranscriptPath: string): string {
   return `${basePathOrTranscriptPath}${SUMMARY_SUFFIX}`;
 }
 
-function slugifyFilenameSegment(input: string): string {
+export function slugifyFilenameSegment(input: string): string {
   const normalized = input
     .normalize("NFKD")
     .replace(/[\u0300-\u036f]/g, "")
