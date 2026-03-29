@@ -115,6 +115,9 @@ export async function spawnCli(
       resolve(Buffer.concat(stdoutChunks).toString("utf8"));
     });
 
+    child.stdin.on("error", () => {
+      // Suppress EPIPE if the child exits before reading stdin.
+    });
     child.stdin.end(prompt);
   });
 }

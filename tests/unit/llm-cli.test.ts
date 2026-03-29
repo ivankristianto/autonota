@@ -118,11 +118,15 @@ function mockSuccessfulSpawn(stdout: string) {
   const child = new EventEmitter() as EventEmitter & {
     stdout: EventEmitter;
     stderr: EventEmitter;
-    stdin: { write: ReturnType<typeof vi.fn>; end: ReturnType<typeof vi.fn> };
+    stdin: {
+      write: ReturnType<typeof vi.fn>;
+      end: ReturnType<typeof vi.fn>;
+      on: ReturnType<typeof vi.fn>;
+    };
   };
   child.stdout = new EventEmitter();
   child.stderr = new EventEmitter();
-  child.stdin = { write: vi.fn(), end: vi.fn() };
+  child.stdin = { write: vi.fn(), end: vi.fn(), on: vi.fn() };
 
   mockSpawn.mockReturnValueOnce(child);
 
@@ -139,11 +143,15 @@ function mockFailingSpawn(stderr: string, exitCode: number) {
   const child = new EventEmitter() as EventEmitter & {
     stdout: EventEmitter;
     stderr: EventEmitter;
-    stdin: { write: ReturnType<typeof vi.fn>; end: ReturnType<typeof vi.fn> };
+    stdin: {
+      write: ReturnType<typeof vi.fn>;
+      end: ReturnType<typeof vi.fn>;
+      on: ReturnType<typeof vi.fn>;
+    };
   };
   child.stdout = new EventEmitter();
   child.stderr = new EventEmitter();
-  child.stdin = { write: vi.fn(), end: vi.fn() };
+  child.stdin = { write: vi.fn(), end: vi.fn(), on: vi.fn() };
 
   mockSpawn.mockReturnValueOnce(child);
 
@@ -193,11 +201,15 @@ describe("spawnCli", () => {
       const child = new EventEmitter() as EventEmitter & {
         stdout: EventEmitter;
         stderr: EventEmitter;
-        stdin: { write: ReturnType<typeof vi.fn>; end: ReturnType<typeof vi.fn> };
+        stdin: {
+          write: ReturnType<typeof vi.fn>;
+          end: ReturnType<typeof vi.fn>;
+          on: ReturnType<typeof vi.fn>;
+        };
       };
       child.stdout = new EventEmitter();
       child.stderr = new EventEmitter();
-      child.stdin = { write: vi.fn(), end: vi.fn() };
+      child.stdin = { write: vi.fn(), end: vi.fn(), on: vi.fn() };
 
       process.nextTick(() => {
         const err = new Error("not found") as Error & { code?: string };
