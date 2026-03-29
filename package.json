@@ -19,7 +19,8 @@
     "lint": "npm run format:check && eslint src tests",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "release": "bash scripts/release.sh"
   },
   "engines": {
     "node": ">=22"
