@@ -114,11 +114,11 @@ describe("transcribe command", () => {
     };
     const client = { tag: "openai-client" };
 
-    mkdtempMock.mockResolvedValueOnce("/tmp/nota-run-123");
+    mkdtempMock.mockResolvedValueOnce("/tmp/autonota-run-123");
     deriveTranscriptPathMock.mockReturnValueOnce("/work/out/demo.transcript.json");
     createOpenAiClientMock.mockReturnValueOnce(client);
     downloadYoutubeAudioMock.mockResolvedValueOnce({
-      audioPath: "/tmp/nota-run-123/audio.mp3",
+      audioPath: "/tmp/autonota-run-123/audio.mp3",
       metadata: transcript.source,
     });
     transcribeAudioMock.mockResolvedValueOnce(transcript);
@@ -150,13 +150,13 @@ describe("transcribe command", () => {
     expect(transcribeAudioMock).toHaveBeenCalledWith(
       client,
       expect.objectContaining({
-        audioPath: "/tmp/nota-run-123/audio.mp3",
+        audioPath: "/tmp/autonota-run-123/audio.mp3",
         source: transcript.source,
         transcription: {
           model: "whisper-1",
           language: "id",
         },
-        tempDir: "/tmp/nota-run-123",
+        tempDir: "/tmp/autonota-run-123",
         onProgress: expect.any(Function),
       }),
     );
@@ -166,7 +166,7 @@ describe("transcribe command", () => {
     expect(printArtifactPathsMock).toHaveBeenCalledWith({
       transcriptPath: "/work/out/demo.transcript.json",
     });
-    expect(rmMock).toHaveBeenCalledWith("/tmp/nota-run-123", { recursive: true, force: true });
+    expect(rmMock).toHaveBeenCalledWith("/tmp/autonota-run-123", { recursive: true, force: true });
     expect(result).toEqual({
       transcriptPath: "/work/out/demo.transcript.json",
       transcript,
@@ -176,7 +176,7 @@ describe("transcribe command", () => {
   it("stops before doing work when the output already exists and --force is not set", async () => {
     process.env.OPENAI_API_KEY = "test-key";
 
-    mkdtempMock.mockResolvedValueOnce("/tmp/nota-run-456");
+    mkdtempMock.mockResolvedValueOnce("/tmp/autonota-run-456");
     deriveTranscriptPathMock.mockReturnValueOnce("/work/out/demo.transcript.json");
     assertWritableMock.mockImplementationOnce(() => {
       throw new Error(
@@ -194,17 +194,17 @@ describe("transcribe command", () => {
     expect(downloadYoutubeAudioMock).not.toHaveBeenCalled();
     expect(transcribeAudioMock).not.toHaveBeenCalled();
     expect(writeJsonMock).not.toHaveBeenCalled();
-    expect(rmMock).toHaveBeenCalledWith("/tmp/nota-run-456", { recursive: true, force: true });
+    expect(rmMock).toHaveBeenCalledWith("/tmp/autonota-run-456", { recursive: true, force: true });
   });
 
   it("forwards custom transcription models to the transcription layer", async () => {
     process.env.OPENAI_API_KEY = "test-key";
 
-    mkdtempMock.mockResolvedValueOnce("/tmp/nota-run-456");
+    mkdtempMock.mockResolvedValueOnce("/tmp/autonota-run-456");
     deriveTranscriptPathMock.mockReturnValueOnce("/work/out/demo.transcript.json");
     createOpenAiClientMock.mockReturnValueOnce({ tag: "openai-client" });
     downloadYoutubeAudioMock.mockResolvedValueOnce({
-      audioPath: "/tmp/nota-run-456/audio.mp3",
+      audioPath: "/tmp/autonota-run-456/audio.mp3",
       metadata: {
         type: "youtube" as const,
         url: "https://www.youtube.com/watch?v=abc123xyz00",
@@ -265,7 +265,7 @@ describe("transcribe command", () => {
       configurable: true,
     });
 
-    mkdtempMock.mockResolvedValueOnce("/tmp/nota-run-789");
+    mkdtempMock.mockResolvedValueOnce("/tmp/autonota-run-789");
     deriveTranscriptPathMock.mockReturnValueOnce("/work/out/demo.transcript.json");
     createOpenAiClientMock.mockReturnValueOnce({ tag: "openai-client" });
     downloadYoutubeAudioMock.mockRejectedValueOnce(new Error("download failed"));
@@ -310,7 +310,7 @@ describe("transcribe command", () => {
       fullText: "",
     };
 
-    mkdtempMock.mockResolvedValueOnce("/tmp/nota-run-dir");
+    mkdtempMock.mockResolvedValueOnce("/tmp/autonota-run-dir");
     createOpenAiClientMock.mockReturnValueOnce({ tag: "openai-client" });
     fetchYoutubeMetadataMock.mockResolvedValueOnce(metadata);
     downloadYoutubeAudioMock.mockResolvedValueOnce({
@@ -350,7 +350,7 @@ describe("transcribe command", () => {
   });
 
   it("does not create an OpenAI client when requirement validation fails", async () => {
-    mkdtempMock.mockResolvedValueOnce("/tmp/nota-run-requirements");
+    mkdtempMock.mockResolvedValueOnce("/tmp/autonota-run-requirements");
     deriveTranscriptPathMock.mockReturnValueOnce("/work/out/demo.transcript.json");
     checkTranscribeRequirementsMock.mockImplementationOnce(() => {
       throw new Error("missing OPENAI_API_KEY");

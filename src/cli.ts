@@ -13,7 +13,7 @@ export function createProgram(): Command {
   const program = new Command();
 
   program
-    .name("nota")
+    .name("autonota")
     .description("Download YouTube audio, transcribe it, and summarize transcripts");
 
   program

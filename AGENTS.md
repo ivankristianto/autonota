@@ -1,10 +1,10 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code and other AI agents when working with code in this repository.
 
 ## Project Purpose
 
-`nota` is a Node CLI that downloads YouTube audio, transcribes it with OpenAI Whisper into timestamped JSON, and summarizes transcripts into Markdown.
+`autonota` is a Node CLI that downloads YouTube audio, transcribes it with OpenAI Whisper into timestamped JSON, and summarizes transcripts into Markdown.
 
 ## Commands
 
@@ -59,8 +59,8 @@ Tests live in `tests/unit/` (per-module) and `tests/commands/` (command-level in
 
 ## Artifact Conventions
 
-- `nota transcribe --output <base-path>` writes `<base-path>.transcript.json`
-- `nota summarize <transcript-json> --output <summary-md>` writes exactly the path the caller specified
+- `autonota transcribe --output <base-path>` writes `<base-path>.transcript.json`
+- `autonota summarize <transcript-json> --output <summary-md>` writes exactly the path the caller specified
 
 The `TranscriptDocument` shape in `src/types.ts` is the stable contract between commands. Do not change it without explicit user approval.
 

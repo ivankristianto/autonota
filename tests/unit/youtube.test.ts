@@ -95,7 +95,7 @@ describe("youtube helpers", () => {
 
     await downloadYoutubeAudio({
       url: "https://www.youtube.com/watch?v=abc123xyz00",
-      outputBasePath: "/tmp/nota-youtube-test/demo",
+      outputBasePath: "/tmp/autonota-youtube-test/demo",
       browser: "brave",
     });
 
@@ -158,11 +158,11 @@ describe("youtube helpers", () => {
 
     const result = await downloadYoutubeAudio({
       url: "https://www.youtube.com/watch?v=abc123xyz00",
-      outputBasePath: "/tmp/nota-youtube-test/demo",
+      outputBasePath: "/tmp/autonota-youtube-test/demo",
     });
 
     expect(spawnSyncMock).toHaveBeenCalledTimes(1);
-    expect(result.audioPath).toBe("/tmp/nota-youtube-test/demo-demo-title.mp3");
+    expect(result.audioPath).toBe("/tmp/autonota-youtube-test/demo-demo-title.mp3");
   });
 
   it("throws a metadata error when yt-dlp exits non-zero", async () => {

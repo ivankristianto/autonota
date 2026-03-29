@@ -8,8 +8,8 @@ import { describe, expect, it } from "vitest";
 
 describe("CLI entrypoint", () => {
   it("prints help when invoked through a symlinked bin path", async () => {
-    const tempDir = await mkdtemp(path.join(os.tmpdir(), "nota-cli-"));
-    const linkPath = path.join(tempDir, "nota");
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "autonota-cli-"));
+    const linkPath = path.join(tempDir, "autonota");
     const cliPath = fileURLToPath(new URL("../../dist/cli.js", import.meta.url));
 
     await symlink(cliPath, linkPath);

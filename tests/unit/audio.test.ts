@@ -47,14 +47,14 @@ describe("audio helpers", () => {
   });
 
   it("returns only chunks from the current split run", async () => {
-    mkdtempMock.mockResolvedValueOnce("/tmp/nota-audio/run-123");
+    mkdtempMock.mockResolvedValueOnce("/tmp/autonota-audio/run-123");
     spawnSyncMock.mockReturnValueOnce({
       status: 0,
       stdout: "",
       stderr: "",
     });
     readdirMock.mockImplementation(async (dir: string) => {
-      if (dir === "/tmp/nota-audio") {
+      if (dir === "/tmp/autonota-audio") {
         return ["stale_chunk_000.mp3", "stale_chunk_001.mp3"];
       }
 
@@ -62,14 +62,14 @@ describe("audio helpers", () => {
     });
 
     const chunks = await splitAudioToMp3Chunks(
-      "/tmp/nota-audio/current.mp3",
+      "/tmp/autonota-audio/current.mp3",
       60,
-      "/tmp/nota-audio",
+      "/tmp/autonota-audio",
     );
 
     expect(chunks).toEqual([
-      "/tmp/nota-audio/run-123/current_chunk_000.mp3",
-      "/tmp/nota-audio/run-123/current_chunk_001.mp3",
+      "/tmp/autonota-audio/run-123/current_chunk_000.mp3",
+      "/tmp/autonota-audio/run-123/current_chunk_001.mp3",
     ]);
   });
 

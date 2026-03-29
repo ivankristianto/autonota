@@ -40,7 +40,7 @@ export async function runTranscribeCommand(
     transcriptPath = deriveTranscriptPath(options.output);
   }
 
-  const tempDir = await mkdtemp(path.join(os.tmpdir(), "nota-transcribe-"));
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "autonota-transcribe-"));
 
   try {
     if (!isDirMode && transcriptPath) {

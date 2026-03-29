@@ -157,7 +157,7 @@ export async function generateSummaryMarkdown(
     text: {
       format: {
         type: "json_schema",
-        name: "nota_summary",
+        name: "autonota_summary",
         strict: true,
         description: "Structured Markdown summary content for a transcript artifact.",
         schema: SUMMARY_RESPONSE_SCHEMA,

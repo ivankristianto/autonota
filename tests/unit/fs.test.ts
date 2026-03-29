@@ -36,7 +36,7 @@ describe("filesystem helpers", () => {
   });
 
   it("rejects overwriting an existing file without --force", async () => {
-    const tempDir = await mkdtemp(path.join(os.tmpdir(), "nota-fs-"));
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "autonota-fs-"));
     const existingPath = path.join(tempDir, "existing.json");
     await writeFile(existingPath, "{}", "utf8");
 
@@ -48,7 +48,7 @@ describe("filesystem helpers", () => {
   });
 
   it("writes json without clobbering an existing file", async () => {
-    const tempDir = await mkdtemp(path.join(os.tmpdir(), "nota-fs-"));
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "autonota-fs-"));
     const existingPath = path.join(tempDir, "existing.json");
     await writeFile(existingPath, "{}", "utf8");
 
@@ -63,7 +63,7 @@ describe("filesystem helpers", () => {
   });
 
   it("overwrites an existing file when overwrite is enabled", async () => {
-    const tempDir = await mkdtemp(path.join(os.tmpdir(), "nota-fs-"));
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "autonota-fs-"));
     const existingPath = path.join(tempDir, "existing.json");
     await writeFile(existingPath, '{"old":true}\n', "utf8");
 
@@ -76,7 +76,7 @@ describe("filesystem helpers", () => {
   });
 
   it("writes text without clobbering an existing file", async () => {
-    const tempDir = await mkdtemp(path.join(os.tmpdir(), "nota-fs-"));
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "autonota-fs-"));
     const existingPath = path.join(tempDir, "existing.md");
     await writeFile(existingPath, "old\n", "utf8");
 
@@ -90,7 +90,7 @@ describe("filesystem helpers", () => {
   });
 
   it("overwrites existing text when overwrite is enabled", async () => {
-    const tempDir = await mkdtemp(path.join(os.tmpdir(), "nota-fs-"));
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "autonota-fs-"));
     const existingPath = path.join(tempDir, "existing.md");
     await writeFile(existingPath, "old\n", "utf8");
 
@@ -103,7 +103,7 @@ describe("filesystem helpers", () => {
   });
 
   it("reads a valid transcript file", async () => {
-    const tempDir = await mkdtemp(path.join(os.tmpdir(), "nota-fs-"));
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "autonota-fs-"));
     const transcriptPath = path.join(tempDir, "valid.transcript.json");
     const transcript = {
       source: {
@@ -135,7 +135,7 @@ describe("filesystem helpers", () => {
   });
 
   it("rejects malformed transcript files with a targeted error", async () => {
-    const tempDir = await mkdtemp(path.join(os.tmpdir(), "nota-fs-"));
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "autonota-fs-"));
     const transcriptPath = path.join(tempDir, "broken.transcript.json");
     await writeFile(transcriptPath, JSON.stringify({ source: {} }), "utf8");
 

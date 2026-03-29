@@ -104,7 +104,7 @@ describe("summary helpers", () => {
           format: expect.objectContaining({
             type: "json_schema",
             strict: true,
-            name: "nota_summary",
+            name: "autonota_summary",
           }),
         }),
       }),

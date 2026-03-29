@@ -1,10 +1,10 @@
-# Nota
+# AutoNota
 
-`nota` is a Node CLI for downloading YouTube audio, transcribing it with OpenAI Whisper into timestamped JSON, and summarizing transcript JSON into Markdown.
+`autonota` is a Node CLI for downloading YouTube audio, transcribing it with OpenAI Whisper into timestamped JSON, and summarizing transcript JSON into Markdown.
 
 ## Prerequisites
 
-- Node.js 20+
+- Node.js 22+
 - `yt-dlp`
 - `ffmpeg`
 - `ffprobe`
@@ -13,22 +13,28 @@
 ## Install
 
 ```bash
-npm install
-npm run build
+npm install -g autonota
+```
+
+Or run without installing:
+
+```bash
+npx autonota transcribe <youtube-url> --output <base-path>
+npx autonota summarize <transcript-json> --output <summary-md>
 ```
 
 ## Usage
 
 ```bash
-nota transcribe <youtube-url> --output <base-path>
-nota summarize <transcript-json> --output <summary-md>
+autonota transcribe <youtube-url> --output <base-path>
+autonota summarize <transcript-json> --output <summary-md>
 ```
 
 Examples:
 
 ```bash
-nota transcribe "https://www.youtube.com/watch?v=..." --output ./out/demo
-nota summarize ./out/demo.transcript.json --output ./out/demo.summary.md
+autonota transcribe "https://www.youtube.com/watch?v=..." --output ./out/demo
+autonota summarize ./out/demo.transcript.json --output ./out/demo.summary.md
 ```
 
 ## Commands
@@ -36,7 +42,7 @@ nota summarize ./out/demo.transcript.json --output ./out/demo.summary.md
 ### Transcribe
 
 ```bash
-nota transcribe --help
+autonota transcribe --help
 ```
 
 Flags:
@@ -59,20 +65,26 @@ Notes:
 ### Summarize
 
 ```bash
-nota summarize --help
+autonota summarize --help
 ```
 
 Flags:
 
 - `--output <summaryPath>`: explicit summary file path
-- `--model <name>`: summary model override, defaults to `gpt-5-mini`
+- `--model <name>`: summary model override; defaults to `gpt-5-mini` (OpenAI), `claude-sonnet-4-6` (`--claude`), or `gpt-5.4-mini` (`--codex`)
 - `--summary-lang <code>`: summary language override, defaults to `en`
 - `--force`: overwrite an existing summary output
-- `--base-url <url>`: optional OpenAI-compatible base URL override
+- `--base-url <url>`: optional OpenAI-compatible base URL override (OpenAI path only)
+- `--claude`: use Claude Code CLI for summarization
+- `--codex`: use Codex CLI for summarization
+
+Notes:
+
+- `--claude` and `--codex` are mutually exclusive.
 
 ## Progress Output
 
-`nota transcribe` streams progress for the two slow steps:
+`autonota transcribe` streams progress for the two slow steps:
 
 **Download** — yt-dlp progress lines appear under the spinner as they arrive:
 
@@ -98,8 +110,8 @@ In non-TTY contexts (pipes, CI) all progress writes to stderr; stdout remains ma
 
 ## Artifacts
 
-- `nota transcribe --output ./out/demo` writes `./out/demo.transcript.json`
-- `nota summarize ./out/demo.transcript.json --output ./out/demo.summary.md` writes `./out/demo.summary.md`
+- `autonota transcribe --output ./out/demo` writes `./out/demo.transcript.json`
+- `autonota summarize ./out/demo.transcript.json --output ./out/demo.summary.md` writes `./out/demo.summary.md`
 
 ## Environment
 
