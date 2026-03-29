@@ -30,7 +30,5 @@ export async function runDiagnosticsCommand(): Promise<void> {
   const results = runAllChecks(process.env);
   process.stdout.write(`${formatDiagnosticsOutput(results)}\n`);
 
-  if (results.some((result) => !result.found)) {
-    process.exitCode = 1;
-  }
+  process.exitCode = results.some((result) => !result.found) ? 1 : 0;
 }

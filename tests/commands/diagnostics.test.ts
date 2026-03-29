@@ -81,7 +81,7 @@ describe("runDiagnosticsCommand", () => {
     }
   });
 
-  it("prints results and does not set exit code when all checks pass", async () => {
+  it("prints results and sets exit code 0 when all checks pass", async () => {
     execFileSyncMock
       .mockReturnValueOnce("/usr/local/bin/yt-dlp\n")
       .mockReturnValueOnce("/usr/local/bin/ffmpeg\n")
@@ -100,7 +100,7 @@ describe("runDiagnosticsCommand", () => {
       await runDiagnosticsCommand();
 
       expect(writes.join("")).toContain("All checks passed.");
-      expect(process.exitCode).toBeUndefined();
+      expect(process.exitCode).toBe(0);
     } finally {
       writeSpy.mockRestore();
       process.exitCode = undefined;
