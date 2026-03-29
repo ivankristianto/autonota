@@ -177,6 +177,10 @@ info "Published v$NEW_VERSION to npm"
 # Disable cleanup — package is live, commit+tag must stay
 COMMIT_CREATED=false
 GIT_TAG=""
+ORIGINAL_VERSION=""
+
+# Save tag for push (GIT_TAG is cleared to disable cleanup)
+RELEASE_TAG="v$NEW_VERSION"
 
 # ── 8. Push ─────────────────────────────────────────────
 bold "Pushing to GitHub"
@@ -184,14 +188,14 @@ bold "Pushing to GitHub"
 if ! git push origin main; then
   error "git push failed!"
   error "Package is already published. Push manually:"
-  error "  git push origin main && git push origin $GIT_TAG"
+  error "  git push origin main && git push origin $RELEASE_TAG"
   exit 1
 fi
 
-if ! git push origin "$GIT_TAG"; then
+if ! git push origin "$RELEASE_TAG"; then
   error "git push --tags failed!"
   error "Push tag manually:"
-  error "  git push origin $GIT_TAG"
+  error "  git push origin $RELEASE_TAG"
   exit 1
 fi
 
