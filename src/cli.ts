@@ -43,12 +43,15 @@ export function createProgram(): Command {
 
   program
     .command("summarize")
+    .alias("summarise")
     .argument("<transcriptJson>")
     .option("--output <summaryPath>")
     .option("--model <name>")
     .option("--summary-lang <code>")
     .option("--force")
     .option("--base-url <url>")
+    .option("--claude")
+    .option("--codex")
     .action(
       async (
         transcriptJson: string,
@@ -58,6 +61,8 @@ export function createProgram(): Command {
           summaryLang?: string;
           force?: boolean;
           baseUrl?: string;
+          claude?: boolean;
+          codex?: boolean;
         },
       ) => {
         await runSummarizeCommand(transcriptJson, options);

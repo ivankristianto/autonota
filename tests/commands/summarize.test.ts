@@ -183,4 +183,14 @@ describe("summarize command", () => {
       expect.arrayContaining(["--output", "--model", "--summary-lang", "--force", "--base-url"]),
     );
   });
+
+  it("registers --claude and --codex flags on the summarize command", () => {
+    const program = createProgram();
+
+    const summarizeCommand = program.commands.find((command) => command.name() === "summarize");
+
+    expect(summarizeCommand?.options.map((option) => option.long)).toEqual(
+      expect.arrayContaining(["--claude", "--codex"]),
+    );
+  });
 });
